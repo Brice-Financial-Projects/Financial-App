@@ -1,0 +1,50 @@
+<!--app/templates/budget/income.html-->
+
+{% extends 'base.html' %}
+
+{% block title %}Income Details{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="text-center mb-4">Enter Income Information</h2>
+    <form method="POST" action="{{ url_for('budget.income') }}">
+        {{ form.hidden_tag() }}
+
+        <div class="mb-3">
+            {{ form.gross_income.label(class="form-label") }}
+            {{ form.gross_income(class="form-control") }}
+        </div>
+
+        <div class="mb-3">
+            {{ form.gross_income_frequency.label(class="form-label") }}
+            {{ form.gross_income_frequency(class="form-select") }}
+        </div>
+
+        <h3>Other Income Sources</h3>
+        <div id="other-income-container">
+            {% for field in form.other_income_sources %}
+            <div class="income-entry mb-3">
+                {{ field.category.label(class="form-label") }}
+                {{ field.category(class="form-select") }}
+
+                {{ field.name.label(class="form-label mt-2") }}
+                {{ field.name(class="form-control") }}
+
+                {{ field.amount.label(class="form-label mt-2") }}
+                {{ field.amount(class="form-control") }}
+
+                {{ field.frequency.label(class="form-label mt-2") }}
+                {{ field.frequency(class="form-select") }}
+
+                <button type="button" class="btn btn-danger remove-income mt-2">Remove</button>
+            </div>
+            {% endfor %}
+        </div>
+        <button type="button" id="add-income" class="btn btn-secondary">Add Another Income Source</button>
+
+        <button type="submit" class="btn btn-primary w-100 mt-3">Save Income</button>
+    </form>
+</div>
+
+<script src="{{ url_for('static', filename='js/income.js') }}"></script>
+{% endblock %}

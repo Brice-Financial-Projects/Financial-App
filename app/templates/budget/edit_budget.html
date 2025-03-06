@@ -1,0 +1,44 @@
+<!--app/templates/budget/edit_budget.html-->
+
+{% extends 'base.html' %}
+
+{% block title %}Edit Budget{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+  <h2>Edit Budget: {{ budget.name }}</h2>
+  <form method="POST" action="{{ url_for('budget.edit_budget', budget_id=budget.id) }}">
+    {{ form.hidden_tag() }}
+
+    <!-- Budget Name -->
+    <div class="mb-3">
+      {{ form.budget_name.label(class="form-label") }}
+      {{ form.budget_name(class="form-control") }}
+    </div>
+
+    <!-- Income -->
+    <div class="mb-3">
+      {{ form.income.label(class="form-label") }}
+      {{ form.income(class="form-control") }}
+    </div>
+
+    <!-- Pay Period -->
+    <div class="mb-3">
+      {{ form.pay_period.label(class="form-label") }}
+      {{ form.pay_period(class="form-select") }}
+    </div>
+
+    <!-- Rent -->
+    <div class="mb-3">
+      {{ form.rent.label(class="form-label") }}
+      {{ form.rent(class="form-control") }}
+    </div>
+
+    <!-- You can optionally include additional fields (utilities, debts, loans, etc.) -->
+    <!-- For simplicity, only core fields are shown here -->
+
+    <button type="submit" class="btn btn-primary">Update Budget</button>
+    <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}

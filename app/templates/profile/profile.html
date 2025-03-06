@@ -1,0 +1,69 @@
+<!--app/templates/profile/profile.html-->
+
+{% extends 'base.html' %}
+
+{% block title %}Edit Profile{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="text-center mb-4">Edit Your Profile</h2>
+
+    <!-- Display flash messages (this block will show messages only once) -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('profile.profile') }}">
+        {{ form.hidden_tag() }}
+
+        <div class="mb-3">
+            {{ form.first_name.label(class="form-label") }}
+            {{ form.first_name(class="form-control") }}
+        </div>
+
+        <div class="mb-3">
+            {{ form.last_name.label(class="form-label") }}
+            {{ form.last_name(class="form-control") }}
+        </div>
+
+        <div class="mb-3">
+            {{ form.state.label(class="form-label") }}
+            {{ form.state(class="form-select") }}
+        </div>
+
+        <div class="mb-3">
+            {{ form.income_type.label(class="form-label") }}
+            {{ form.income_type(class="form-select") }}
+        </div>
+
+        <div class="mb-3">
+            {{ form.retirement_contribution_type.label(class="form-label") }}
+            {{ form.retirement_contribution_type(class="form-select") }}
+        </div>
+
+        <div class="mb-3">
+            {{ form.retirement_contribution_value.label(class="form-label") }}
+            {{ form.retirement_contribution_value(class="form-control") }}
+        </div>
+
+        <div class="mb-3">
+            {{ form.pay_cycle.label(class="form-label") }}
+            {{ form.pay_cycle(class="form-select") }}
+        </div>
+
+        <div class="mb-3">
+            {{ form.monthly_benefit_deductions.label(class="form-label") }}
+            {{ form.monthly_benefit_deductions(class="form-control") }}
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">Save Profile</button>
+    </form>
+
+    <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary w-100 mt-3">Return to Dashboard</a>
+</div>
+{% endblock %}
+
