@@ -58,9 +58,9 @@ class Profile(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
-    state = db.Column(db.String(2), nullable=False)  # ✅ Used for state tax API
-    salary_type = db.Column(db.String(20), nullable=False)  # ✅ More accurate than "income_type"
-    tax_withholding = db.Column(db.Float, default=0)  # ✅ Kept here, removed from Budget
+    state = db.Column(db.String(2), nullable=False)
+    income_type = db.Column(db.String(20), nullable=False, default="Salary")  # ✅ Reverting back
+    tax_withholding = db.Column(db.Float, default=0)
     retirement_contribution_type = db.Column(db.String(10), nullable=False)
     retirement_contribution = db.Column(db.Float, default=0)
     pay_cycle = db.Column(db.String(20), nullable=False)
@@ -72,6 +72,7 @@ class Profile(db.Model):
 
     def __repr__(self):
         return f"<Profile {self.first_name} {self.last_name}, State: {self.state}>"
+
 
 
 
@@ -152,7 +153,7 @@ class GrossIncome(db.Model):
     created_at = db.Column(db.DateTime, server_default=func.now(), nullable=False)
 
     # Relationship
-    budget = db.relationship("Budget", back_populates="gross_income")
+    budget = db.relationship("Budget", back_populates="gross_income_sources")
 
     def __repr__(self):
         return f"<GrossIncome {self.source} - ${self.gross_income} ({self.frequency}) - Tax: {self.tax_type}, State Tax: {self.state_tax_ref}>"
