@@ -58,9 +58,9 @@ class Profile(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
-    state = db.Column(db.String(2), nullable=False)
-    income_type = db.Column(db.String(20), nullable=False)
-    tax_withholding = db.Column(db.Float, default=0)
+    state = db.Column(db.String(2), nullable=False)  # ✅ Used for state tax API
+    salary_type = db.Column(db.String(20), nullable=False)  # ✅ More accurate than "income_type"
+    tax_withholding = db.Column(db.Float, default=0)  # ✅ Kept here, removed from Budget
     retirement_contribution_type = db.Column(db.String(10), nullable=False)
     retirement_contribution = db.Column(db.Float, default=0)
     pay_cycle = db.Column(db.String(20), nullable=False)
@@ -73,6 +73,8 @@ class Profile(db.Model):
     def __repr__(self):
         return f"<Profile {self.first_name} {self.last_name}, State: {self.state}>"
 
+
+
 # -------------------- Budget Model --------------------
 class Budget(db.Model):
     __tablename__ = "budgets"
@@ -81,29 +83,38 @@ class Budget(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     profile_id = db.Column(db.Integer, db.ForeignKey('profiles.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
-    gross_income = db.Column(db.Float, nullable=False, default=0.0)
-    tax_withholding = db.Column(db.Float, default=0)
+
+    # Primary salary details are stored in Profile
+    gross_income = db.Column(db.Float, nullable=False, default=0.0)  # 💰 Consistency in naming
     retirement_contribution = db.Column(db.Float, default=0)
     benefit_deductions = db.Column(db.Float, default=0)
+
     created_at = db.Column(db.DateTime, server_default=func.now(), nullable=False)
     updated_at = db.Column(db.DateTime, onupdate=func.now())
-    other_income_sources = db.Column(JSON, nullable=True)
 
     # Relationships
     user = db.relationship("User", back_populates="budgets")
     profile = db.relationship("Profile", back_populates="budgets")
     budget_items = db.relationship("BudgetItem", back_populates="budget", cascade="all, delete-orphan")
+    gross_income_sources = db.relationship("GrossIncome", back_populates="budget", cascade="all, delete-orphan")  # 🔄 Updated reference
 
     @property
-    def income_type(self):
-        return self.user.profile.income_type if self.user and self.user.profile else "Salary"
+    def salary_type(self):
+        return self.user.profile.salary_type if self.user and self.user.profile else "Salary"
 
     @property
     def state(self):
         return self.user.profile.state if self.user and self.user.profile else "CA"
 
+    @property
+    def tax_withholding(self):
+        """Pull tax withholding from Profile instead of duplicating."""
+        return self.user.profile.tax_withholding if self.user and self.user.profile else 0
+
     def __repr__(self):
         return f"<Budget {self.name}>"
+
+
 
 # -------------------- BudgetItem Model --------------------
 class BudgetItem(db.Model):
@@ -121,4 +132,28 @@ class BudgetItem(db.Model):
 
     def __repr__(self):
         return f"<BudgetItem {self.category} - {self.name}>"
+
+
+# -------------------- Gross Income Model ------------------------------
+class GrossIncome(db.Model):
+    __tablename__ = "gross_income"
+
+    id = db.Column(db.Integer, primary_key=True)
+    budget_id = db.Column(db.Integer, db.ForeignKey('budgets.id'), nullable=False)
+    category = db.Column(db.String(50), nullable=False)  # e.g., "W2 Job", "Rental", "Freelance"
+    source = db.Column(db.String(100), nullable=False)  # e.g., "Uber", "Book Royalties"
+    gross_income = db.Column(db.Float, nullable=False)  # 💰 Clearly labeled as "Gross"
+    frequency = db.Column(db.String(20), nullable=False, default="monthly")  # e.g., "weekly", "monthly"
+
+    # ✅ Reference tax rules dynamically
+    tax_type = db.Column(db.String(50), nullable=False)  # "W2", "Self-Employed", "Capital Gains", "Rental"
+    state_tax_ref = db.Column(db.String(2), nullable=True)  # Used for API calls based on Profile.state
+
+    created_at = db.Column(db.DateTime, server_default=func.now(), nullable=False)
+
+    # Relationship
+    budget = db.relationship("Budget", back_populates="gross_income")
+
+    def __repr__(self):
+        return f"<GrossIncome {self.source} - ${self.gross_income} ({self.frequency}) - Tax: {self.tax_type}, State Tax: {self.state_tax_ref}>"
 
