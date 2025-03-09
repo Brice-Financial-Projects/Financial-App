@@ -27,7 +27,7 @@
                 {{ field.category.label(class="form-label") }}
                 {{ field.category(class="form-select") }}
 
-                {{ field.name.label(class="form-label mt-2") }}
+                {{ field.name.label if field.name else '' }}
                 {{ field.name(class="form-control") }}
 
                 {{ field.amount.label(class="form-label mt-2") }}

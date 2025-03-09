@@ -149,13 +149,111 @@ def income():
         budget.gross_income = form.gross_income.data
         budget.gross_income_frequency = form.gross_income_frequency.data
 
+        # Collect and store other income sources
+        other_income = []
+        for field in form.other_income_sources.entries:
+            if field.data['name'] and field.data['amount']:  # Ensure valid data
+                other_income.append({
+                    'category': field.data['category'],
+                    'name': field.data['name'],
+                    'amount': field.data['amount'],
+                    'frequency': field.data['frequency']
+                })
+
+        budget.other_income_sources = other_income if other_income else None
+
         db.session.add(budget)
         db.session.commit()
         
         flash("Income data saved successfully!", "success")
         return redirect(url_for('budget.results'))
 
+    # ✅ FIX: Ensure WTForms fields are properly formatted
+    elif budget:
+        form.gross_income.data = budget.gross_income
+        form.gross_income_frequency.data = budget.gross_income_frequency
+
+        # Ensure WTForms expects proper fields instead of raw JSON data
+        form.other_income_sources.entries = []
+        if budget.other_income_sources:
+            for income in budget.other_income_sources:
+                entry = form.other_income_sources.append_entry()
+                entry.category.data = income.get('category', 'other')
+                entry.name.data = income.get('name', '')
+                entry.amount.data = income.get('amount', 0.0)
+                entry.frequency.data = income.get('frequency', 'monthly')
+
     return render_template('budget/income.html', form=form)
+
+
+@budget_bp.route('/view/<int:budget_id>', methods=['GET'])
+@login_required
+def view_budget(budget_id):
+    """View an individual budget and its details."""
+    budget = Budget.query.get_or_404(budget_id)
+    
+    if budget.user_id != current_user.id:
+        flash("You are not authorized to view this budget.", "danger")
+        return redirect(url_for('main.dashboard'))
+
+    budget_items = BudgetItem.query.filter_by(budget_id=budget.id).all()
+
+    return render_template('budget/view_budget.html', budget=budget, budget_items=budget_items)
+
+@budget_bp.route('/edit/<int:budget_id>', methods=['GET', 'POST'])
+@login_required
+def edit_budget(budget_id):
+    """Allow users to edit an existing budget."""
+    budget = Budget.query.get_or_404(budget_id)
+    
+    if budget.user_id != current_user.id:
+        flash("You are not authorized to edit this budget.", "danger")
+        return redirect(url_for('main.dashboard'))
+    
+    form = BudgetForm(obj=budget)  # Pre-fill form with existing budget data
+    
+    if form.validate_on_submit():
+        # Update budget fields with submitted form data
+        budget.name = form.budget_name.data
+        budget.gross_income = form.income.data or 0
+        budget.pay_cycle = form.pay_cycle.data
+        budget.retirement_contribution = form.retirement_contribution.data or 0
+        budget.benefit_deductions = form.benefit_deductions.data or 0
+
+        try:
+            db.session.commit()
+            flash("Budget updated successfully!", "success")
+            return redirect(url_for('main.dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash("An error occurred while updating your budget. Please try again.", "danger")
+    
+    return render_template('budget/edit_budget.html', form=form, budget=budget)
+
+
+@budget_bp.route('/delete/<int:budget_id>', methods=['POST'])
+@login_required
+def delete_budget(budget_id):
+    """Allow users to delete an existing budget."""
+    budget = Budget.query.get_or_404(budget_id)
+
+    if budget.user_id != current_user.id:
+        flash("You do not have permission to delete this budget.", "danger")
+        return redirect(url_for('main.dashboard'))
+    
+    try:
+        db.session.delete(budget)
+        db.session.commit()
+        flash("Budget deleted successfully!", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash("An error occurred while deleting the budget. Please try again.", "danger")
+
+    return redirect(url_for('main.dashboard'))
+
+
+
+
 
 
 
