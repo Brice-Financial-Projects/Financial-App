@@ -137,51 +137,57 @@ def income():
     profile = Profile.query.filter_by(user_id=current_user.id).first()
 
     if not profile:
-        flash("Please complete your profile before entering budget details.", "warning")
-        return redirect(url_for('profile.profile'))  
+        flash("Please complete your profile before entering income details.", "warning")
+        return redirect(url_for('profile.profile'))
 
     budget = Budget.query.filter_by(user_id=current_user.id, profile_id=profile.id).first()
 
-    if form.validate_on_submit():
-        if not budget:
-            budget = Budget(user_id=current_user.id, profile_id=profile.id, name="Default Budget")
+    if not budget:
+        flash("No budget found. Please create a budget first.", "warning")
+        return redirect(url_for('budget.create_budget'))
 
-        budget.gross_income = form.gross_income.data
-        budget.gross_income_frequency = form.gross_income_frequency.data
+    # Check if the user already has a primary income source
+    primary_income = GrossIncome.query.filter_by(budget_id=budget.id, category="W2 Job").first()
 
-        # Collect and store other income sources
-        other_income = []
+    if request.method == 'POST' and form.validate_on_submit():
+        if not primary_income:
+            # Create a new W2 primary job income entry
+            primary_income = GrossIncome(
+                budget_id=budget.id,
+                category="W2 Job",
+                source="Primary Job",
+                gross_income=form.gross_income.data,
+                frequency=form.gross_income_frequency.data,
+                tax_type="W2",
+                state_tax_ref=budget.state
+            )
+            db.session.add(primary_income)
+        else:
+            # Update existing primary income
+            primary_income.gross_income = form.gross_income.data
+            primary_income.frequency = form.gross_income_frequency.data
+
+        # Handle additional income sources
+        other_income_data = []
         for field in form.other_income_sources.entries:
-            if field.data['name'] and field.data['amount']:  # Ensure valid data
-                other_income.append({
+            if field.data['name'] and field.data['amount']:
+                other_income_data.append({
                     'category': field.data['category'],
                     'name': field.data['name'],
                     'amount': field.data['amount'],
                     'frequency': field.data['frequency']
                 })
 
-        budget.other_income_sources = other_income if other_income else None
+        budget.other_income_sources = other_income_data if other_income_data else None
 
-        db.session.add(budget)
         db.session.commit()
-        
-        flash("Income data saved successfully!", "success")
+        flash("Income details saved successfully!", "success")
         return redirect(url_for('budget.results'))
 
-    # ✅ FIX: Ensure WTForms fields are properly formatted
-    elif budget:
-        form.gross_income.data = budget.gross_income
-        form.gross_income_frequency.data = budget.gross_income_frequency
-
-        # Ensure WTForms expects proper fields instead of raw JSON data
-        form.other_income_sources.entries = []
-        if budget.other_income_sources:
-            for income in budget.other_income_sources:
-                entry = form.other_income_sources.append_entry()
-                entry.category.data = income.get('category', 'other')
-                entry.name.data = income.get('name', '')
-                entry.amount.data = income.get('amount', 0.0)
-                entry.frequency.data = income.get('frequency', 'monthly')
+    # Pre-fill form with existing income data
+    if primary_income:
+        form.gross_income.data = primary_income.gross_income
+        form.gross_income_frequency.data = primary_income.frequency
 
     return render_template('budget/income.html', form=form)
 

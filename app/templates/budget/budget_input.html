@@ -1,3 +1,5 @@
+<!--app/templates/budget/budget_input.html-->
+
 {% extends 'base.html' %}
 
 {% block title %}Input Budget Details{% endblock %}
@@ -18,13 +20,9 @@
             {% if items %}
               {% for item in items %}
                 <div class="row mb-3">
-                  <div class="col-md-6">
+                  <div class="col-md-12"> <!-- Adjusted to full width -->
                     <label for="min_{{ item }}" class="form-label">{{ item }} - Minimum Payment</label>
                     <input type="number" class="form-control" name="min_{{ item }}" id="min_{{ item }}" placeholder="Enter minimum payment">
-                  </div>
-                  <div class="col-md-6">
-                    <label for="pref_{{ item }}" class="form-label">{{ item }} - Preferred Payment</label>
-                    <input type="number" class="form-control" name="pref_{{ item }}" id="pref_{{ item }}" placeholder="Enter preferred payment">
                   </div>
                 </div>
               {% endfor %}
@@ -39,6 +37,7 @@
     </form>
 </div>
 {% endblock %}
+
 
 
 
