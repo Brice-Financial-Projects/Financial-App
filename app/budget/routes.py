@@ -3,7 +3,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_login import login_required, current_user
 from app import db
-from app.models import Budget, BudgetItem, Profile  # Ensure BudgetItem is imported
+from app.models import Budget, BudgetItem, Profile, GrossIncome
 from app.forms import BudgetForm, IncomeForm
 from app.budget.budget_logic import calculate_budget, create_excel
 
@@ -13,35 +13,35 @@ budget_bp = Blueprint('budget', __name__, template_folder='budget')
 @login_required
 def create_budget():
     form = BudgetForm()
-    
+
+    # Retrieve budget name from session (user must have set it in the name step)
+    budget_name = session.get('budget_name', None)
+    if not budget_name:
+        flash("Please enter a budget name before proceeding.", "warning")
+        return redirect(url_for('budget.budget_name'))
+
     if request.method == 'POST':
-        print("✅ POST request received!")
-        
-        # Store budget name in session
-        session['budget_name'] = form.budget_name.data
-        
-        # Get the list of category names
         category_names = request.form.getlist('category_name[]')
+
         if not category_names:
             flash("No categories provided. Please add at least one category.", "danger")
             return redirect(url_for('budget.create_budget'))
-        
+
         categories = {}
-        # Process categories and subcategories
         for i, category in enumerate(category_names):
             subcategories = request.form.getlist(f'subcategory_{i}[]')
-            subcategories = [sub for sub in subcategories if sub.strip() != '']
+            subcategories = [sub.strip() for sub in subcategories if sub.strip()]
             categories[category] = subcategories
 
         session['categories'] = categories
-        session.modified = True  # Ensures Flask updates session
-        print("💾 Session Data Saved:", session.get('categories'))
-        
+        session.modified = True  
+
         flash("Budget categories created! Proceeding to input details.", "success")
-        return redirect(url_for('budget.input_budget'))  # ✅ FIX: Redirecting to the correct page
-    
-    print("📌 GET request received - Rendering Form")
-    return render_template('budget/budget_create.html', form=form)
+        return redirect(url_for('budget.input_budget'))
+
+    return render_template('budget/budget_create.html', form=form, budget_name=budget_name)
+
+
 
 
 @budget_bp.route('/input', methods=['GET', 'POST'])
@@ -150,8 +150,8 @@ def income():
     primary_income = GrossIncome.query.filter_by(budget_id=budget.id, category="W2 Job").first()
 
     if request.method == 'POST' and form.validate_on_submit():
+        # If primary income doesn't exist, create it
         if not primary_income:
-            # Create a new W2 primary job income entry
             primary_income = GrossIncome(
                 budget_id=budget.id,
                 category="W2 Job",
@@ -167,29 +167,60 @@ def income():
             primary_income.gross_income = form.gross_income.data
             primary_income.frequency = form.gross_income_frequency.data
 
-        # Handle additional income sources
-        other_income_data = []
+        # Handle additional income sources correctly
+        existing_other_income = GrossIncome.query.filter(
+            GrossIncome.budget_id == budget.id, 
+            GrossIncome.category != "W2 Job"
+        ).all()
+        
+        # Delete any existing additional income sources to prevent duplication
+        for income in existing_other_income:
+            db.session.delete(income)
+
+        # Store new other income sources
         for field in form.other_income_sources.entries:
             if field.data['name'] and field.data['amount']:
-                other_income_data.append({
-                    'category': field.data['category'],
-                    'name': field.data['name'],
-                    'amount': field.data['amount'],
-                    'frequency': field.data['frequency']
-                })
-
-        budget.other_income_sources = other_income_data if other_income_data else None
+                new_income = GrossIncome(
+                    budget_id=budget.id,
+                    category=field.data['category'],
+                    source=field.data['name'],
+                    gross_income=field.data['amount'],
+                    frequency=field.data['frequency'],
+                    tax_type="Other",
+                    state_tax_ref=budget.state
+                )
+                db.session.add(new_income)
 
         db.session.commit()
         flash("Income details saved successfully!", "success")
-        return redirect(url_for('budget.results'))
+
+        # Redirect based on button clicked
+        if 'preview' in request.form:
+            return redirect(url_for('budget.preview'))
+        else:
+            return redirect(url_for('budget.results'))
 
     # Pre-fill form with existing income data
     if primary_income:
         form.gross_income.data = primary_income.gross_income
         form.gross_income_frequency.data = primary_income.frequency
 
+    # Pre-populate additional income sources
+    other_income = GrossIncome.query.filter(
+        GrossIncome.budget_id == budget.id, 
+        GrossIncome.category != "W2 Job"
+    ).all()
+
+    form.other_income_sources.entries = []
+    for income in other_income:
+        entry = form.other_income_sources.append_entry()
+        entry.category.data = income.category
+        entry.name.data = income.source
+        entry.amount.data = income.gross_income
+        entry.frequency.data = income.frequency
+
     return render_template('budget/income.html', form=form)
+
 
 
 @budget_bp.route('/view/<int:budget_id>', methods=['GET'])
@@ -257,6 +288,30 @@ def delete_budget(budget_id):
 
     return redirect(url_for('main.dashboard'))
 
+
+@budget_bp.route('/name', methods=['GET', 'POST'])
+@login_required
+def budget_name():
+    form = BudgetForm()
+
+    # Get all existing budgets for this user
+    existing_budgets = Budget.query.filter_by(user_id=current_user.id).all()
+
+    if request.method == 'POST':
+        budget_name = form.budget_name.data.strip()
+
+        # Check if the budget name is already taken
+        existing_budget = Budget.query.filter_by(user_id=current_user.id, name=budget_name).first()
+        if existing_budget:
+            flash("A budget with this name already exists. Please choose a different name.", "danger")
+            return redirect(url_for('budget.budget_name'))  # Stay on the same page
+
+        # Store the name in session and move to the next step
+        session['budget_name'] = budget_name
+        flash("Budget name saved! Proceed to budget details.", "success")
+        return redirect(url_for('budget.create_budget'))
+
+    return render_template('budget/name.html', form=form, existing_budgets=existing_budgets)
 
 
 

@@ -64,7 +64,7 @@ from wtforms import StringField, FloatField, SelectField, FieldList, FormField, 
 from wtforms.validators import DataRequired, Optional
 
 class OtherIncomeField(FlaskForm):
-    """Form field for an additional income source."""
+    """Form field for additional income sources."""
     category = SelectField(
         'Income Type',
         choices=[
@@ -81,13 +81,36 @@ class OtherIncomeField(FlaskForm):
     )
     name = StringField('Income Source Name', validators=[DataRequired()])
     amount = FloatField('Amount', validators=[DataRequired()])
-    frequency = SelectField('Frequency', choices=[('monthly', 'Monthly'), ('annually', 'Annually')], validators=[DataRequired()])
+    frequency = SelectField(
+        'Frequency',
+        choices=[
+            ('weekly', 'Weekly'),
+            ('biweekly', 'Biweekly'),
+            ('monthly', 'Monthly'),
+            ('bimonthly', 'Bimonthly'),
+            ('annually', 'Annually')
+        ],
+        validators=[DataRequired()]
+    )
+
 
 class IncomeForm(FlaskForm):
     """Form for entering gross income and other income sources."""
     gross_income = FloatField('Gross Income', validators=[DataRequired()])
-    gross_income_frequency = SelectField('Income Frequency', choices=[('monthly', 'Monthly'), ('annually', 'Annually')], validators=[DataRequired()])
-    
-    other_income_sources = FieldList(FormField(OtherIncomeField), min_entries=1, max_entries=10)  # Up to 10 streams of income
+    gross_income_frequency = SelectField(
+        'Income Frequency',
+        choices=[
+            ('weekly', 'Weekly'),
+            ('biweekly', 'Biweekly'),
+            ('monthly', 'Monthly'),
+            ('bimonthly', 'Bimonthly'),
+            ('annually', 'Annually')
+        ],
+        validators=[DataRequired()]
+    )
 
-    submit = SubmitField('Save Income Data')
+    other_income_sources = FieldList(FormField(OtherIncomeField), min_entries=1, max_entries=10)
+
+    save = SubmitField('Save Income')
+    preview = SubmitField('Next: Budget Preview')
+

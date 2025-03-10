@@ -27,7 +27,7 @@
                 {{ field.category.label(class="form-label") }}
                 {{ field.category(class="form-select") }}
 
-                {{ field.name.label if field.name else '' }}
+                {{ field.name.label(class="form-label mt-2") }}
                 {{ field.name(class="form-control") }}
 
                 {{ field.amount.label(class="form-label mt-2") }}
@@ -40,11 +40,14 @@
             </div>
             {% endfor %}
         </div>
+
         <button type="button" id="add-income" class="btn btn-secondary">Add Another Income Source</button>
 
-        <button type="submit" class="btn btn-primary w-100 mt-3">Save Income</button>
+        <button type="submit" name="save" class="btn btn-primary w-100 mt-3">Save Income</button>
+        <button type="submit" name="preview" class="btn btn-success w-100 mt-3">Next: Budget Preview</button>
     </form>
 </div>
 
 <script src="{{ url_for('static', filename='js/income.js') }}"></script>
 {% endblock %}
+

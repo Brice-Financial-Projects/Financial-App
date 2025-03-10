@@ -85,20 +85,28 @@ class Budget(db.Model):
     profile_id = db.Column(db.Integer, db.ForeignKey('profiles.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
 
-    # Primary salary details are stored in Profile
-    gross_income = db.Column(db.Float, nullable=False, default=0.0)  # 💰 Consistency in naming
+    # Ensuring unique budget names per user
+    __table_args__ = (db.UniqueConstraint('user_id', 'name', name='unique_user_budget_name'),)
+
+    # Salary details
+    gross_income = db.Column(db.Float, nullable=False, default=0.0)
     retirement_contribution = db.Column(db.Float, default=0)
     benefit_deductions = db.Column(db.Float, default=0)
 
+    # Budget status (draft, finalized, archived)
+    status = db.Column(db.String(20), nullable=False, default="draft")
+
+    # Timestamps
     created_at = db.Column(db.DateTime, server_default=func.now(), nullable=False)
-    updated_at = db.Column(db.DateTime, onupdate=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relationships
     user = db.relationship("User", back_populates="budgets")
     profile = db.relationship("Profile", back_populates="budgets")
     budget_items = db.relationship("BudgetItem", back_populates="budget", cascade="all, delete-orphan")
-    gross_income_sources = db.relationship("GrossIncome", back_populates="budget", cascade="all, delete-orphan")  # 🔄 Updated reference
+    gross_income_sources = db.relationship("GrossIncome", back_populates="budget", cascade="all, delete-orphan")
 
+    # Properties for dynamic calculations
     @property
     def salary_type(self):
         return self.user.profile.salary_type if self.user and self.user.profile else "Salary"
@@ -112,8 +120,23 @@ class Budget(db.Model):
         """Pull tax withholding from Profile instead of duplicating."""
         return self.user.profile.tax_withholding if self.user and self.user.profile else 0
 
+    # New Helper Methods
+    def calculate_total_income(self):
+        """Calculate total income from all sources linked to this budget."""
+        return sum(income.gross_income for income in self.gross_income_sources)
+
+    def get_budget_summary(self):
+        """Return a dictionary summarizing budget details."""
+        return {
+            "name": self.name,
+            "status": self.status,
+            "total_income": self.calculate_total_income(),
+            "created_at": self.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            "updated_at": self.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+        }
+
     def __repr__(self):
-        return f"<Budget {self.name}>"
+        return f"<Budget {self.name} (Status: {self.status})>"
 
 
 
