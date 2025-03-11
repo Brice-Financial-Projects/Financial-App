@@ -7,6 +7,19 @@
 {% block content %}
 <div class="container">
     <h2 class="text-center mb-4">Enter Income Information</h2>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
     <form method="POST" action="{{ url_for('budget.income') }}">
         {{ form.hidden_tag() }}
 
@@ -45,9 +58,15 @@
 
         <button type="submit" name="save" class="btn btn-primary w-100 mt-3">Save Income</button>
         <button type="submit" name="preview" class="btn btn-success w-100 mt-3">Next: Budget Preview</button>
+
+        <!-- Clear Form Button -->
+        <button type="reset" class="btn btn-warning w-100 mt-3">Clear Form</button>
     </form>
 </div>
 
+<!-- Load External JavaScript -->
 <script src="{{ url_for('static', filename='js/income.js') }}"></script>
+
 {% endblock %}
+
 

@@ -14,8 +14,8 @@ budget_bp = Blueprint('budget', __name__, template_folder='budget')
 def create_budget():
     form = BudgetForm()
 
-    # Retrieve budget name from session (user must have set it in the name step)
-    budget_name = session.get('budget_name', None)
+    # Ensure the budget name exists in session (redirect if not)
+    budget_name = session.get('budget_name')
     if not budget_name:
         flash("Please enter a budget name before proceeding.", "warning")
         return redirect(url_for('budget.budget_name'))
@@ -27,6 +27,10 @@ def create_budget():
             flash("No categories provided. Please add at least one category.", "danger")
             return redirect(url_for('budget.create_budget'))
 
+        # Clear categories from session to avoid conflicts
+        session.pop('categories', None)
+
+        # Store categories in session for tracking
         categories = {}
         for i, category in enumerate(category_names):
             subcategories = request.form.getlist(f'subcategory_{i}[]')
@@ -40,6 +44,7 @@ def create_budget():
         return redirect(url_for('budget.input_budget'))
 
     return render_template('budget/budget_create.html', form=form, budget_name=budget_name)
+
 
 
 
@@ -146,11 +151,10 @@ def income():
         flash("No budget found. Please create a budget first.", "warning")
         return redirect(url_for('budget.create_budget'))
 
-    # Check if the user already has a primary income source
     primary_income = GrossIncome.query.filter_by(budget_id=budget.id, category="W2 Job").first()
 
     if request.method == 'POST' and form.validate_on_submit():
-        # If primary income doesn't exist, create it
+        # Save or update the primary income
         if not primary_income:
             primary_income = GrossIncome(
                 budget_id=budget.id,
@@ -163,16 +167,15 @@ def income():
             )
             db.session.add(primary_income)
         else:
-            # Update existing primary income
             primary_income.gross_income = form.gross_income.data
             primary_income.frequency = form.gross_income_frequency.data
 
-        # Handle additional income sources correctly
+        # Handle additional income sources
         existing_other_income = GrossIncome.query.filter(
             GrossIncome.budget_id == budget.id, 
             GrossIncome.category != "W2 Job"
         ).all()
-        
+
         # Delete any existing additional income sources to prevent duplication
         for income in existing_other_income:
             db.session.delete(income)
@@ -194,11 +197,8 @@ def income():
         db.session.commit()
         flash("Income details saved successfully!", "success")
 
-        # Redirect based on button clicked
-        if 'preview' in request.form:
-            return redirect(url_for('budget.preview'))
-        else:
-            return redirect(url_for('budget.results'))
+        # Prevent full page refresh by redirecting back to the same page
+        return redirect(url_for('budget.income'))
 
     # Pre-fill form with existing income data
     if primary_income:
@@ -220,6 +220,7 @@ def income():
         entry.frequency.data = income.frequency
 
     return render_template('budget/income.html', form=form)
+
 
 
 
@@ -294,6 +295,10 @@ def delete_budget(budget_id):
 def budget_name():
     form = BudgetForm()
 
+    # Clear session data related to previous budgets (except for income)
+    session.pop('categories', None)
+    session.pop('budget_name', None)
+
     # Get all existing budgets for this user
     existing_budgets = Budget.query.filter_by(user_id=current_user.id).all()
 
@@ -304,14 +309,15 @@ def budget_name():
         existing_budget = Budget.query.filter_by(user_id=current_user.id, name=budget_name).first()
         if existing_budget:
             flash("A budget with this name already exists. Please choose a different name.", "danger")
-            return redirect(url_for('budget.budget_name'))  # Stay on the same page
+            return redirect(url_for('budget.budget_name'))
 
-        # Store the name in session and move to the next step
+        # Store the new budget name in session
         session['budget_name'] = budget_name
         flash("Budget name saved! Proceed to budget details.", "success")
         return redirect(url_for('budget.create_budget'))
 
     return render_template('budget/name.html', form=form, existing_budgets=existing_budgets)
+
 
 
 
