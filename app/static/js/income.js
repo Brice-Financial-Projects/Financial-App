@@ -4,20 +4,16 @@ document.addEventListener('DOMContentLoaded', function () {
     const container = document.getElementById('other-income-container');
     const addIncomeButton = document.getElementById('add-income');
 
-    // Define frequency options
-    const frequencyOptions = `
-        <option value="weekly">Weekly</option>
-        <option value="biweekly">Biweekly</option>
-        <option value="monthly">Monthly</option>
-        <option value="bimonthly">Bimonthly</option>
-        <option value="annually">Annually</option>
-    `;
-
     addIncomeButton.addEventListener('click', function () {
         const index = container.children.length;
         const newEntry = document.createElement('div');
         newEntry.classList.add('income-entry', 'mb-3');
+        
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value;  // Retrieve CSRF token
+        
         newEntry.innerHTML = `
+            <input type="hidden" name="other_income_sources-${index}-csrf_token" value="${csrfToken}">
+
             <label class="form-label">Income Type</label>
             <select class="form-select" name="other_income_sources-${index}-category">
                 <option value="rental">Rental Income</option>
@@ -38,7 +34,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
             <label class="form-label mt-2">Frequency</label>
             <select class="form-select" name="other_income_sources-${index}-frequency">
-                ${frequencyOptions}  <!-- Dynamically add all frequency options -->
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Biweekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="bimonthly">Bimonthly</option>
+                <option value="annually">Annually</option>
             </select>
 
             <button type="button" class="btn btn-danger remove-income mt-2">Remove</button>
@@ -52,3 +52,4 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 });
+

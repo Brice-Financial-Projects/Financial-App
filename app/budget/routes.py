@@ -153,59 +153,73 @@ def income():
 
     primary_income = GrossIncome.query.filter_by(budget_id=budget.id, category="W2 Job").first()
 
+    # 🛠️ Log Form Validation Errors
+    if request.method == 'POST' and not form.validate_on_submit():
+        print("❌ Form Validation Failed:", form.errors)
+
     if request.method == 'POST' and form.validate_on_submit():
-        # Save or update the primary income
-        if not primary_income:
-            primary_income = GrossIncome(
-                budget_id=budget.id,
-                category="W2 Job",
-                source="Primary Job",
-                gross_income=form.gross_income.data,
-                frequency=form.gross_income_frequency.data,
-                tax_type="W2",
-                state_tax_ref=budget.state
-            )
-            db.session.add(primary_income)
-        else:
-            primary_income.gross_income = form.gross_income.data
-            primary_income.frequency = form.gross_income_frequency.data
-
-        # Handle additional income sources
-        existing_other_income = GrossIncome.query.filter(
-            GrossIncome.budget_id == budget.id, 
-            GrossIncome.category != "W2 Job"
-        ).all()
-
-        # Delete any existing additional income sources to prevent duplication
-        for income in existing_other_income:
-            db.session.delete(income)
-
-        # Store new other income sources
-        for field in form.other_income_sources.entries:
-            if field.data['name'] and field.data['amount']:
-                new_income = GrossIncome(
+        try:
+            # ✅ Save or update the primary income
+            if not primary_income:
+                primary_income = GrossIncome(
                     budget_id=budget.id,
-                    category=field.data['category'],
-                    source=field.data['name'],
-                    gross_income=field.data['amount'],
-                    frequency=field.data['frequency'],
-                    tax_type="Other",
+                    category="W2 Job",
+                    source="Primary Job",
+                    gross_income=form.gross_income.data,
+                    frequency=form.gross_income_frequency.data,
+                    tax_type="W2",
                     state_tax_ref=budget.state
                 )
-                db.session.add(new_income)
+                db.session.add(primary_income)
+            else:
+                primary_income.gross_income = form.gross_income.data
+                primary_income.frequency = form.gross_income_frequency.data
 
-        db.session.commit()
-        flash("Income details saved successfully!", "success")
+            # ✅ Update Additional Income Sources
+            existing_other_income = GrossIncome.query.filter(
+                GrossIncome.budget_id == budget.id, 
+                GrossIncome.category != "W2 Job"
+            ).all()
 
-        # Prevent full page refresh by redirecting back to the same page
-        return redirect(url_for('budget.income'))
+            existing_income_map = {income.source: income for income in existing_other_income}
 
-    # Pre-fill form with existing income data
+            for field in form.other_income_sources.entries:
+                if field.data['name'] and field.data['amount']:
+                    if field.data['name'] in existing_income_map:
+                        # Update existing income
+                        income_entry = existing_income_map[field.data['name']]
+                        income_entry.gross_income = field.data['amount']
+                        income_entry.frequency = field.data['frequency']
+                    else:
+                        # Add new income
+                        new_income = GrossIncome(
+                            budget_id=budget.id,
+                            category=field.data['category'],
+                            source=field.data['name'],
+                            gross_income=field.data['amount'],
+                            frequency=field.data['frequency'],
+                            tax_type="Other",
+                            state_tax_ref=budget.state
+                        )
+                        db.session.add(new_income)
+
+            db.session.commit()
+            flash("Income details saved successfully!", "success")
+
+            # ✅ Redirect back to the same page to avoid full page refresh
+            return redirect(url_for('budget.income'))
+        
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ Database Error: {e}")
+            flash("An error occurred while saving income details. Please try again.", "danger")
+
+    # ✅ Pre-fill form with existing income data
     if primary_income:
         form.gross_income.data = primary_income.gross_income
         form.gross_income_frequency.data = primary_income.frequency
 
-    # Pre-populate additional income sources
+    # ✅ Pre-populate additional income sources
     other_income = GrossIncome.query.filter(
         GrossIncome.budget_id == budget.id, 
         GrossIncome.category != "W2 Job"
@@ -220,6 +234,7 @@ def income():
         entry.frequency.data = income.frequency
 
     return render_template('budget/income.html', form=form)
+
 
 
 
