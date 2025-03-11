@@ -225,13 +225,18 @@ def income():
         GrossIncome.category != "W2 Job"
     ).all()
 
-    form.other_income_sources.entries = []
+    form.other_income_sources.entries = []  # Ensure a clean slate
+
     for income in other_income:
-        entry = form.other_income_sources.append_entry()
+        entry = form.other_income_sources.append_entry()  # Create a new entry in the FieldList
+
+        # ✅ Assign values to `.data` attributes correctly
         entry.category.data = income.category
         entry.name.data = income.source
         entry.amount.data = income.gross_income
         entry.frequency.data = income.frequency
+
+
 
     return render_template('budget/income.html', form=form)
 
