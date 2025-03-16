@@ -145,7 +145,9 @@ def income():
         flash("Please complete your profile before entering income details.", "warning")
         return redirect(url_for('profile.profile'))
 
-    budget = Budget.query.filter_by(user_id=current_user.id, profile_id=profile.id).first()
+    # Get the most recent budget by ordering by ID in descending order
+    budget = Budget.query.filter_by(user_id=current_user.id, profile_id=profile.id).order_by(Budget.id.desc()).first()
+    print(f"Current budget ID: {budget.id if budget else 'None'}")
 
     if not budget:
         flash("No budget found. Please create a budget first.", "warning")
@@ -159,12 +161,23 @@ def income():
     if request.method == 'POST':
         print("Form Data:", request.form)
         
-        # Validate main form fields only
+        # Skip CSRF validation for nested fields but validate main form fields
+        # We'll manually check the main CSRF token
+        if request.form.get('csrf_token') != form.csrf_token.current_token:
+            flash("Invalid CSRF token. Please try again.", "danger")
+            return redirect(url_for('budget.income'))
+            
+        # Basic form validation
         if not form.validate():
             print("Form Validation Errors:", form.errors)
             for field, errors in form.errors.items():
+                # Skip CSRF token errors for other_income_sources
+                if field == 'other_income_sources' and all('csrf_token' in err for err in errors):
+                    continue
+                    
                 for error in errors:
-                    flash(f"Error in {field}: {error}", "danger")
+                    if not (field == 'other_income_sources' and 'csrf_token' in str(error)):
+                        flash(f"Error in {field}: {error}", "danger")
             
             # Re-create income entries list from the form data for re-rendering the form
             i = 0
@@ -212,6 +225,8 @@ def income():
                 GrossIncome.category != "W2 Job"
             ).all()
 
+            print(f"Found {len(existing_other_income)} existing income sources for budget {budget.id}")
+            
             # Delete any existing income sources
             for income in existing_other_income:
                 db.session.delete(income)
@@ -242,6 +257,7 @@ def income():
                             state_tax_ref=profile.state
                         )
                         db.session.add(new_income)
+                        print(f"Adding income source: {name} - ${amount} ({frequency}) to budget {budget.id}")
                     except (ValueError, TypeError):
                         flash(f"Invalid amount for income source '{name}'", "danger")
                 
@@ -293,7 +309,9 @@ def income():
         GrossIncome.category != "W2 Job"
     ).all()
 
-    print("Found other income sources:", other_income)
+    print(f"Found {len(other_income)} other income sources for budget {budget.id}:")
+    for inc in other_income:
+        print(f"  - {inc.source}: ${inc.gross_income} ({inc.frequency})")
 
     # Create a fresh form for the main fields
     form = IncomeForm()

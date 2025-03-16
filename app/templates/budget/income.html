@@ -21,6 +21,7 @@
     {% endwith %}
 
     <form method="POST" action="{{ url_for('budget.income') }}">
+        <!-- Only include the CSRF token once at the form level -->
         {{ form.hidden_tag() }}
 
         <div class="mb-3">
@@ -38,9 +39,7 @@
             {% if other_income %}
                 {% for entry in other_income %}
                 <div class="income-entry mb-3">
-                    <!-- Get the CSRF token from the main form -->
-                    <input type="hidden" name="csrf_token" value="{{ form.csrf_token.current_token }}">
-                    
+                    <!-- Do not include individual CSRF tokens for each entry -->
                     <div class="mb-3">
                         <label class="form-label">Income Type</label>
                         <select class="form-select" name="other_income_sources-{{ loop.index0 }}-category">

@@ -5,15 +5,18 @@ document.addEventListener('DOMContentLoaded', function () {
     const addIncomeButton = document.getElementById('add-income');
 
     addIncomeButton.addEventListener('click', function () {
+        // Remove any "no income sources" message if it exists
+        const infoMessage = container.querySelector('.alert-info');
+        if (infoMessage) {
+            infoMessage.remove();
+        }
+        
         const index = container.children.length;
         const newEntry = document.createElement('div');
         newEntry.classList.add('income-entry', 'mb-3');
         
-        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
-        
+        // No need to add CSRF token for each entry - it's at the form level
         newEntry.innerHTML = `
-            <input type="hidden" name="csrf_token" value="${csrfToken}">
-            
             <div class="mb-3">
                 <label class="form-label">Income Type</label>
                 <select class="form-select" name="other_income_sources-${index}-category">
