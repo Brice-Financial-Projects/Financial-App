@@ -37,7 +37,8 @@
         <div id="other-income-container">
             {% for entry in other_income %}
             <div class="income-entry mb-3">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <!-- Get the CSRF token from the main form -->
+                <input type="hidden" name="csrf_token" value="{{ form.csrf_token.current_token }}">
                 
                 <div class="mb-3">
                     <label class="form-label">Income Type</label>
