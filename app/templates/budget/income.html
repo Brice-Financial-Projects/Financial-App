@@ -20,7 +20,6 @@
         {% endif %}
     {% endwith %}
 
-
     <form method="POST" action="{{ url_for('budget.income') }}">
         {{ form.hidden_tag() }}
 
@@ -36,32 +35,42 @@
 
         <h3>Other Income Sources</h3>
         <div id="other-income-container">
-            {% for field in form.other_income_sources %}
+            {% for entry in form.other_income_sources %}
             <div class="income-entry mb-3">
-                {{ field.category.label(class="form-label") }}
-                {{ field.category(class="form-select") }}
+                {{ entry.hidden_tag() }}
+                
+                <div class="mb-3">
+                    {{ entry.category.label(class="form-label") }}
+                    {{ entry.category(class="form-select") }}
+                </div>
 
-                {{ field.name.label(class="form-label mt-2") }}
-                {{ field.name(class="form-control") }}
+                <div class="mb-3">
+                    {{ entry.name.label(class="form-label") }}
+                    {{ entry.name(class="form-control") }}
+                </div>
 
-                {{ field.amount.label(class="form-label mt-2") }}
-                {{ field.amount(class="form-control") }}
+                <div class="mb-3">
+                    {{ entry.amount.label(class="form-label") }}
+                    {{ entry.amount(class="form-control") }}
+                </div>
 
-                {{ field.frequency.label(class="form-label mt-2") }}
-                {{ field.frequency(class="form-select") }}
+                <div class="mb-3">
+                    {{ entry.frequency.label(class="form-label") }}
+                    {{ entry.frequency(class="form-select") }}
+                </div>
 
-                <button type="button" class="btn btn-danger remove-income mt-2">Remove</button>
+                <button type="button" class="btn btn-danger remove-income">Remove</button>
             </div>
             {% endfor %}
         </div>
 
-        <button type="button" id="add-income" class="btn btn-secondary">Add Another Income Source</button>
+        <button type="button" id="add-income" class="btn btn-secondary mb-3">Add Another Income Source</button>
 
-        <button type="submit" name="save" class="btn btn-primary w-100 mt-3">Save Income</button>
-        <button type="submit" name="preview" class="btn btn-success w-100 mt-3">Next: Budget Preview</button>
-
-        <!-- Clear Form Button -->
-        <button type="reset" class="btn btn-warning w-100 mt-3">Clear Form</button>
+        <div class="d-grid gap-2">
+            <button type="submit" name="save" value="save" class="btn btn-primary">Save Income</button>
+            <button type="submit" name="preview" value="preview" class="btn btn-success">Next: Budget Preview</button>
+            <button type="reset" class="btn btn-warning">Clear Form</button>
+        </div>
     </form>
 </div>
 
