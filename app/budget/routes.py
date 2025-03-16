@@ -233,7 +233,7 @@ def income():
 
     print("Found other income sources:", other_income)
 
-    # Clear existing entries and ensure at least one empty entry
+    # Clear existing entries
     while len(form.other_income_sources):
         form.other_income_sources.pop_entry()
 
@@ -241,10 +241,10 @@ def income():
     for income in other_income:
         print(f"Processing income source: {income.source}")
         entry = form.other_income_sources.append_entry()
-        entry.form.category.data = income.category
-        entry.form.name.data = income.source
-        entry.form.amount.data = income.gross_income
-        entry.form.frequency.data = income.frequency
+        entry.category.data = income.category
+        entry.name.data = income.source
+        entry.amount.data = income.gross_income
+        entry.frequency.data = income.frequency
 
     # If no entries exist, add one empty entry
     if len(form.other_income_sources) == 0:
