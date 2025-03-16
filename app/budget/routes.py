@@ -203,6 +203,7 @@ def income():
         try:
             print(f"Starting database transaction for budget {budget.id}")
             db_transaction_success = False
+            db.session.begin_nested()  # Create a savepoint
             
             # Handle primary income
             if form.gross_income.data and form.gross_income_frequency.data:
@@ -238,8 +239,9 @@ def income():
                 db.session.delete(income)
             
             try:
-                # Commit the deletions first
+                # Flush the deletions
                 db.session.flush()
+                print("Successfully flushed deletions")
             except Exception as e:
                 print(f"Error flushing deletions: {str(e)}")
                 raise
@@ -261,18 +263,22 @@ def income():
                 if name and amount_str:
                     try:
                         amount = float(amount_str)
+                        
+                        # Determine the tax type based on the category
+                        tax_type = "W2" if category == "side_job" else "Other"
+                        
                         new_income = GrossIncome(
                             budget_id=budget.id,
                             category=category,
                             source=name,
                             gross_income=amount,
                             frequency=frequency,
-                            tax_type="Other",
+                            tax_type=tax_type,  # Set W2 for side jobs
                             state_tax_ref=profile.state
                         )
                         db.session.add(new_income)
                         sources_added += 1
-                        print(f"Adding income source: {name} - ${amount} ({frequency}) to budget {budget.id}")
+                        print(f"Adding income source: {name} - ${amount} ({frequency}) to budget {budget.id} with tax_type: {tax_type}")
                     except (ValueError, TypeError) as e:
                         print(f"Error with amount conversion: {e}")
                         flash(f"Invalid amount for income source '{name}'", "danger")
@@ -281,12 +287,14 @@ def income():
                 
                 i += 1
 
-            # Double-check that we're actually committing changes
+            # Double-check that we're committing changes
             print(f"Committing {sources_added} income sources to database")
             db.session.commit()
             db_transaction_success = True
-            flash("Income details saved successfully!", "success")
-
+            
+            # Force refresh from database to verify
+            db.session.expire_all()
+            
             # Verify that entries were actually added
             verification = GrossIncome.query.filter(
                 GrossIncome.budget_id == budget.id,
@@ -294,7 +302,9 @@ def income():
             ).all()
             print(f"After commit: Found {len(verification)} income sources in database")
             for inc in verification:
-                print(f"  - Saved: {inc.source}: ${inc.gross_income} ({inc.frequency})")
+                print(f"  - Saved: {inc.source}: ${inc.gross_income} ({inc.frequency}) - Tax Type: {inc.tax_type}")
+                
+            flash("Income details saved successfully!", "success")
 
             # Check which button was clicked
             if 'preview' in request.form:
@@ -337,6 +347,8 @@ def income():
         form.gross_income_frequency.data = primary_income.frequency
 
     # Pre-populate additional income sources only if they exist in the database
+    # Force a fresh query from the database
+    db.session.expire_all()
     other_income = GrossIncome.query.filter(
         GrossIncome.budget_id == budget.id,
         GrossIncome.category != "W2 Job"
@@ -344,7 +356,7 @@ def income():
 
     print(f"Found {len(other_income)} other income sources for budget {budget.id}:")
     for inc in other_income:
-        print(f"  - {inc.source}: ${inc.gross_income} ({inc.frequency})")
+        print(f"  - {inc.source}: ${inc.gross_income} ({inc.frequency}) - Tax Type: {inc.tax_type}")
 
     # Create a fresh form for the main fields
     form = IncomeForm()
