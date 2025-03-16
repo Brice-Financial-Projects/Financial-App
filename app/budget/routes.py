@@ -151,6 +151,9 @@ def income():
         flash("No budget found. Please create a budget first.", "warning")
         return redirect(url_for('budget.create_budget'))
 
+    # Initialize the income_entries list - prevent UnboundLocalError
+    income_entries = []
+    
     primary_income = GrossIncome.query.filter_by(budget_id=budget.id, category="W2 Job").first()
 
     if request.method == 'POST':
@@ -162,6 +165,26 @@ def income():
             for field, errors in form.errors.items():
                 for error in errors:
                     flash(f"Error in {field}: {error}", "danger")
+            
+            # Re-create income entries list from the form data for re-rendering the form
+            i = 0
+            while True:
+                category = request.form.get(f'other_income_sources-{i}-category')
+                name = request.form.get(f'other_income_sources-{i}-name')
+                amount = request.form.get(f'other_income_sources-{i}-amount')
+                frequency = request.form.get(f'other_income_sources-{i}-frequency')
+                
+                if category is None:
+                    break
+                    
+                income_entries.append({
+                    'category': category,
+                    'name': name,
+                    'amount': amount,
+                    'frequency': frequency
+                })
+                i += 1
+                
             return render_template('budget/income.html', form=form, other_income=income_entries)
 
         try:
@@ -238,8 +261,8 @@ def income():
             flash(f"An error occurred while saving income details: {str(e)}", "danger")
             
             # Re-create income entries list from the form data for re-rendering the form
-            income_entries = []
             i = 0
+            income_entries = []
             while True:
                 category = request.form.get(f'other_income_sources-{i}-category')
                 name = request.form.get(f'other_income_sources-{i}-name')
@@ -264,7 +287,7 @@ def income():
         form.gross_income.data = primary_income.gross_income
         form.gross_income_frequency.data = primary_income.frequency
 
-    # Pre-populate additional income sources
+    # Pre-populate additional income sources only if they exist in the database
     other_income = GrossIncome.query.filter(
         GrossIncome.budget_id == budget.id,
         GrossIncome.category != "W2 Job"
@@ -285,7 +308,7 @@ def income():
         form.other_income_sources.pop_entry()
     
     # Create a custom list of income objects with simple attributes
-    income_entries = []
+    # Only add existing income sources, don't include an empty one by default
     for income in other_income:
         income_entries.append({
             'category': income.category,
@@ -294,11 +317,7 @@ def income():
             'frequency': income.frequency
         })
     
-    # If no entries exist, add an empty one
-    if not income_entries:
-        income_entries.append({})
-    
-    # Return the custom data structure
+    # Return the form without any empty entries if none exist in the database
     return render_template('budget/income.html', form=form, other_income=income_entries)
 
 
