@@ -201,6 +201,9 @@ def income():
             return render_template('budget/income.html', form=form, other_income=income_entries)
 
         try:
+            print(f"Starting database transaction for budget {budget.id}")
+            db_transaction_success = False
+            
             # Handle primary income
             if form.gross_income.data and form.gross_income_frequency.data:
                 if not primary_income:
@@ -214,10 +217,12 @@ def income():
                         state_tax_ref=profile.state
                     )
                     db.session.add(primary_income)
+                    print(f"Added primary income: ${form.gross_income.data} ({form.gross_income_frequency.data})")
                 else:
                     primary_income.gross_income = form.gross_income.data
                     primary_income.frequency = form.gross_income_frequency.data
                     primary_income.state_tax_ref = profile.state
+                    print(f"Updated primary income: ${form.gross_income.data} ({form.gross_income_frequency.data})")
 
             # Handle additional income sources
             existing_other_income = GrossIncome.query.filter(
@@ -229,10 +234,19 @@ def income():
             
             # Delete any existing income sources
             for income in existing_other_income:
+                print(f"Deleting income source: {income.source} - ${income.gross_income}")
                 db.session.delete(income)
+            
+            try:
+                # Commit the deletions first
+                db.session.flush()
+            except Exception as e:
+                print(f"Error flushing deletions: {str(e)}")
+                raise
 
             # Process manually submitted income sources from HTML form
             i = 0
+            sources_added = 0
             while True:
                 category = request.form.get(f'other_income_sources-{i}-category')
                 name = request.form.get(f'other_income_sources-{i}-name')
@@ -257,14 +271,30 @@ def income():
                             state_tax_ref=profile.state
                         )
                         db.session.add(new_income)
+                        sources_added += 1
                         print(f"Adding income source: {name} - ${amount} ({frequency}) to budget {budget.id}")
-                    except (ValueError, TypeError):
+                    except (ValueError, TypeError) as e:
+                        print(f"Error with amount conversion: {e}")
                         flash(f"Invalid amount for income source '{name}'", "danger")
+                else:
+                    print(f"Skipping entry {i}: missing name or amount")
                 
                 i += 1
 
+            # Double-check that we're actually committing changes
+            print(f"Committing {sources_added} income sources to database")
             db.session.commit()
+            db_transaction_success = True
             flash("Income details saved successfully!", "success")
+
+            # Verify that entries were actually added
+            verification = GrossIncome.query.filter(
+                GrossIncome.budget_id == budget.id,
+                GrossIncome.category != "W2 Job"
+            ).all()
+            print(f"After commit: Found {len(verification)} income sources in database")
+            for inc in verification:
+                print(f"  - Saved: {inc.source}: ${inc.gross_income} ({inc.frequency})")
 
             # Check which button was clicked
             if 'preview' in request.form:
@@ -297,6 +327,9 @@ def income():
                 i += 1
                 
             return render_template('budget/income.html', form=form, other_income=income_entries)
+        finally:
+            # Log the final transaction status
+            print(f"Database transaction {'succeeded' if db_transaction_success else 'failed'}")
 
     # Pre-fill form with existing data
     if primary_income:
