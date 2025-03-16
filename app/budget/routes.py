@@ -156,12 +156,13 @@ def income():
     if request.method == 'POST':
         print("Form Data:", request.form)
         
-        if not form.validate_on_submit():
+        # Validate main form fields only
+        if not form.validate():
             print("Form Validation Errors:", form.errors)
             for field, errors in form.errors.items():
                 for error in errors:
                     flash(f"Error in {field}: {error}", "danger")
-            return render_template('budget/income.html', form=form)
+            return render_template('budget/income.html', form=form, other_income=income_entries)
 
         try:
             # Handle primary income
@@ -188,23 +189,40 @@ def income():
                 GrossIncome.category != "W2 Job"
             ).all()
 
-            # Delete any existing income sources that are not in the form
+            # Delete any existing income sources
             for income in existing_other_income:
                 db.session.delete(income)
 
-            # Add new income sources from the form
-            for subform in form.other_income_sources:
-                if subform.name.data and subform.amount.data:
-                    new_income = GrossIncome(
-                        budget_id=budget.id,
-                        category=subform.category.data,
-                        source=subform.name.data,
-                        gross_income=subform.amount.data,
-                        frequency=subform.frequency.data,
-                        tax_type="Other",
-                        state_tax_ref=profile.state
-                    )
-                    db.session.add(new_income)
+            # Process manually submitted income sources from HTML form
+            i = 0
+            while True:
+                category = request.form.get(f'other_income_sources-{i}-category')
+                name = request.form.get(f'other_income_sources-{i}-name')
+                amount_str = request.form.get(f'other_income_sources-{i}-amount')
+                frequency = request.form.get(f'other_income_sources-{i}-frequency')
+                
+                # Break if we've processed all entries
+                if category is None:
+                    break
+                
+                # Only add if we have both name and amount
+                if name and amount_str:
+                    try:
+                        amount = float(amount_str)
+                        new_income = GrossIncome(
+                            budget_id=budget.id,
+                            category=category,
+                            source=name,
+                            gross_income=amount,
+                            frequency=frequency,
+                            tax_type="Other",
+                            state_tax_ref=profile.state
+                        )
+                        db.session.add(new_income)
+                    except (ValueError, TypeError):
+                        flash(f"Invalid amount for income source '{name}'", "danger")
+                
+                i += 1
 
             db.session.commit()
             flash("Income details saved successfully!", "success")
@@ -218,7 +236,28 @@ def income():
             db.session.rollback()
             print(f"Database Error: {str(e)}")
             flash(f"An error occurred while saving income details: {str(e)}", "danger")
-            return render_template('budget/income.html', form=form)
+            
+            # Re-create income entries list from the form data for re-rendering the form
+            income_entries = []
+            i = 0
+            while True:
+                category = request.form.get(f'other_income_sources-{i}-category')
+                name = request.form.get(f'other_income_sources-{i}-name')
+                amount = request.form.get(f'other_income_sources-{i}-amount')
+                frequency = request.form.get(f'other_income_sources-{i}-frequency')
+                
+                if category is None:
+                    break
+                    
+                income_entries.append({
+                    'category': category,
+                    'name': name,
+                    'amount': amount,
+                    'frequency': frequency
+                })
+                i += 1
+                
+            return render_template('budget/income.html', form=form, other_income=income_entries)
 
     # Pre-fill form with existing data
     if primary_income:
@@ -233,27 +272,34 @@ def income():
 
     print("Found other income sources:", other_income)
 
-    # Clear existing entries and create a new form with no entries
-    form = IncomeForm(
-        gross_income=form.gross_income.data,
-        gross_income_frequency=form.gross_income_frequency.data
-    )
+    # Create a fresh form for the main fields
+    form = IncomeForm()
+    
+    # Set main form fields
+    if primary_income:
+        form.gross_income.data = primary_income.gross_income
+        form.gross_income_frequency.data = primary_income.frequency
 
-    # Add entries for each income source
+    # Clear any existing entries
+    while form.other_income_sources.data:
+        form.other_income_sources.pop_entry()
+    
+    # Create a custom list of income objects with simple attributes
+    income_entries = []
     for income in other_income:
-        print(f"Processing income source: {income.source}")
-        form.other_income_sources.append_entry({
+        income_entries.append({
             'category': income.category,
             'name': income.source,
             'amount': income.gross_income,
             'frequency': income.frequency
         })
-
-    # If no entries exist, add one empty entry
-    if len(form.other_income_sources) == 0:
-        form.other_income_sources.append_entry()
-
-    return render_template('budget/income.html', form=form)
+    
+    # If no entries exist, add an empty one
+    if not income_entries:
+        income_entries.append({})
+    
+    # Return the custom data structure
+    return render_template('budget/income.html', form=form, other_income=income_entries)
 
 
 

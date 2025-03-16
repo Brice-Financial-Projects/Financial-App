@@ -12,11 +12,11 @@ document.addEventListener('DOMContentLoaded', function () {
         const csrfToken = document.querySelector('input[name="csrf_token"]').value;
         
         newEntry.innerHTML = `
-            <input type="hidden" name="other_income_sources-${index}-csrf_token" value="${csrfToken}">
+            <input type="hidden" name="csrf_token" value="${csrfToken}">
             
             <div class="mb-3">
-                <label class="form-label" for="other_income_sources-${index}-category">Income Type</label>
-                <select class="form-select" id="other_income_sources-${index}-category" name="other_income_sources-${index}-category" required>
+                <label class="form-label">Income Type</label>
+                <select class="form-select" name="other_income_sources-${index}-category">
                     <option value="">Select Income Type</option>
                     <option value="rental">Rental Income</option>
                     <option value="investment">Investment Dividends</option>
@@ -30,18 +30,18 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
 
             <div class="mb-3">
-                <label class="form-label" for="other_income_sources-${index}-name">Income Source Name</label>
-                <input type="text" class="form-control" id="other_income_sources-${index}-name" name="other_income_sources-${index}-name" required>
+                <label class="form-label">Income Source Name</label>
+                <input type="text" class="form-control" name="other_income_sources-${index}-name">
             </div>
 
             <div class="mb-3">
-                <label class="form-label" for="other_income_sources-${index}-amount">Amount</label>
-                <input type="number" class="form-control" id="other_income_sources-${index}-amount" name="other_income_sources-${index}-amount" required step="0.01" min="0">
+                <label class="form-label">Amount</label>
+                <input type="number" class="form-control" name="other_income_sources-${index}-amount" step="0.01" min="0">
             </div>
 
             <div class="mb-3">
-                <label class="form-label" for="other_income_sources-${index}-frequency">Frequency</label>
-                <select class="form-select" id="other_income_sources-${index}-frequency" name="other_income_sources-${index}-frequency" required>
+                <label class="form-label">Frequency</label>
+                <select class="form-select" name="other_income_sources-${index}-frequency">
                     <option value="">Select Frequency</option>
                     <option value="weekly">Weekly</option>
                     <option value="biweekly">Biweekly</option>
@@ -66,11 +66,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 const entries = container.querySelectorAll('.income-entry');
                 entries.forEach((entry, index) => {
                     entry.querySelectorAll('[name^="other_income_sources-"]').forEach(input => {
-                        const fieldName = input.name.split('-').pop();
+                        const parts = input.name.split('-');
+                        const fieldName = parts[2]; // The field name is the third part after two splits
                         input.name = `other_income_sources-${index}-${fieldName}`;
-                        if (input.id) {
-                            input.id = `other_income_sources-${index}-${fieldName}`;
-                        }
                     });
                 });
             }
