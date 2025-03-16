@@ -241,15 +241,15 @@ def income():
     for income in other_income:
         print(f"Processing income source: {income.source}")
         entry = form.other_income_sources.append_entry()
-        form_data = {
-            'category': income.category,
-            'name': income.source,
-            'amount': income.gross_income,
-            'frequency': income.frequency
-        }
-        for field_name, value in form_data.items():
-            field = getattr(entry, field_name)
-            field.data = value
+        # Set form field values directly using data attribute
+        if hasattr(entry, 'category') and hasattr(entry.category, 'data'):
+            entry.category.data = income.category
+        if hasattr(entry, 'name') and hasattr(entry.name, 'data'):
+            entry.name.data = income.source
+        if hasattr(entry, 'amount') and hasattr(entry.amount, 'data'):
+            entry.amount.data = income.gross_income
+        if hasattr(entry, 'frequency') and hasattr(entry.frequency, 'data'):
+            entry.frequency.data = income.frequency
 
     # If no entries exist, add one empty entry
     if len(form.other_income_sources) == 0:
