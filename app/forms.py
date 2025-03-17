@@ -109,7 +109,8 @@ class IncomeForm(FlaskForm):
         validators=[DataRequired()]
     )
 
-    other_income_sources = FieldList(FormField(OtherIncomeField), min_entries=1, max_entries=10)
+    # Removed the FieldList for other_income_sources because we handle it directly in the template and route
+    # other_income_sources = FieldList(FormField(OtherIncomeField), min_entries=1, max_entries=10)
 
     save = SubmitField('Save Income')
     preview = SubmitField('Next: Budget Preview')

@@ -29,17 +29,26 @@ def create_app():
     app = Flask(__name__)
 
     # Configure app
-    env = os.getenv("FLASK_ENV", "production")  # Default to production
+    env = os.getenv("FLASK_ENV", "development")  # Default to development instead of production
+    print(f"🔧 Flask Environment: {env}")
+    
     if env == "development":
         from .config.settings import DevelopmentConfig
         app.config.from_object(DevelopmentConfig)
+        print("🔧 Using Development Configuration")
     elif env == "testing":
         from .config.settings import TestingConfig
         app.config.from_object(TestingConfig)
+        print("🔧 Using Testing Configuration")
     else:
         from .config.settings import ProductionConfig
         app.config.from_object(ProductionConfig)
-
+        print("🔧 Using Production Configuration")
+        
+    # Make sure CSRF is enabled
+    app.config['WTF_CSRF_ENABLED'] = True
+    print(f"🔧 CSRF Protection enabled: {app.config.get('WTF_CSRF_ENABLED', False)}")
+    
     # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
