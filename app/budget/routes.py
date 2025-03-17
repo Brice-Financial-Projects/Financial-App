@@ -201,11 +201,9 @@ def income():
             return render_template('budget/income.html', form=form, other_income=income_entries)
 
         try:
-            print(f"Starting database transaction for budget {budget.id}")
-            db_transaction_success = False
-            db.session.begin_nested()  # Create a savepoint
+            print(f"====== PROCESSING INCOME FORM FOR BUDGET {budget.id} ======")
             
-            # Handle primary income
+            # STEP 1: Handle primary income (W2 Job)
             if form.gross_income.data and form.gross_income_frequency.data:
                 if not primary_income:
                     primary_income = GrossIncome(
@@ -218,14 +216,18 @@ def income():
                         state_tax_ref=profile.state
                     )
                     db.session.add(primary_income)
-                    print(f"Added primary income: ${form.gross_income.data} ({form.gross_income_frequency.data})")
+                    print(f"Adding primary income: ${form.gross_income.data} ({form.gross_income_frequency.data})")
                 else:
                     primary_income.gross_income = form.gross_income.data
                     primary_income.frequency = form.gross_income_frequency.data
                     primary_income.state_tax_ref = profile.state
-                    print(f"Updated primary income: ${form.gross_income.data} ({form.gross_income_frequency.data})")
+                    print(f"Updating primary income: ${form.gross_income.data} ({form.gross_income_frequency.data})")
+                
+                # Save primary income immediately
+                db.session.commit()
+                print("Primary income saved successfully")
 
-            # Handle additional income sources
+            # STEP 2: Delete existing additional income sources
             existing_other_income = GrossIncome.query.filter(
                 GrossIncome.budget_id == budget.id,
                 GrossIncome.category != "W2 Job"
@@ -233,23 +235,18 @@ def income():
 
             print(f"Found {len(existing_other_income)} existing income sources for budget {budget.id}")
             
-            # Delete any existing income sources
             for income in existing_other_income:
                 print(f"Deleting income source: {income.source} - ${income.gross_income}")
                 db.session.delete(income)
             
-            try:
-                # Flush the deletions
-                db.session.flush()
-                print("Successfully flushed deletions")
-            except Exception as e:
-                print(f"Error flushing deletions: {str(e)}")
-                raise
+            # Commit deletions immediately
+            if existing_other_income:
+                db.session.commit()
+                print("Deleted existing income sources")
 
-            # Process manually submitted income sources from HTML form
-            i = 0
+            # STEP 3: Process manually submitted income sources from HTML form
             sources_added = 0
-            while True:
+            for i in range(10):  # Limit to 10 entries maximum for safety
                 category = request.form.get(f'other_income_sources-{i}-category')
                 name = request.form.get(f'other_income_sources-{i}-name')
                 amount_str = request.form.get(f'other_income_sources-{i}-amount')
@@ -267,44 +264,45 @@ def income():
                         # Determine the tax type based on the category
                         tax_type = "W2" if category == "side_job" else "Other"
                         
+                        # Create and save each income source one by one
                         new_income = GrossIncome(
                             budget_id=budget.id,
                             category=category,
                             source=name,
                             gross_income=amount,
                             frequency=frequency,
-                            tax_type=tax_type,  # Set W2 for side jobs
+                            tax_type=tax_type,
                             state_tax_ref=profile.state
                         )
+                        
                         db.session.add(new_income)
+                        # Commit each income source immediately
+                        db.session.commit()
+                        
                         sources_added += 1
-                        print(f"Adding income source: {name} - ${amount} ({frequency}) to budget {budget.id} with tax_type: {tax_type}")
+                        print(f"Added and saved income source: {name} - ${amount} ({frequency}) with tax_type: {tax_type}")
                     except (ValueError, TypeError) as e:
                         print(f"Error with amount conversion: {e}")
                         flash(f"Invalid amount for income source '{name}'", "danger")
+                    except Exception as e:
+                        print(f"Error saving income source {name}: {str(e)}")
                 else:
-                    print(f"Skipping entry {i}: missing name or amount")
-                
-                i += 1
+                    print(f"Skipping entry {i}: missing name ({name}) or amount ({amount_str})")
 
-            # Double-check that we're committing changes
-            print(f"Committing {sources_added} income sources to database")
-            db.session.commit()
-            db_transaction_success = True
-            
-            # Force refresh from database to verify
-            db.session.expire_all()
-            
-            # Verify that entries were actually added
+            # Double-check that entries were saved
             verification = GrossIncome.query.filter(
                 GrossIncome.budget_id == budget.id,
                 GrossIncome.category != "W2 Job"
             ).all()
-            print(f"After commit: Found {len(verification)} income sources in database")
+            
+            print(f"Final verification: Found {len(verification)} income sources in database")
             for inc in verification:
-                print(f"  - Saved: {inc.source}: ${inc.gross_income} ({inc.frequency}) - Tax Type: {inc.tax_type}")
-                
-            flash("Income details saved successfully!", "success")
+                print(f"  - Verified: {inc.source}: ${inc.gross_income} ({inc.frequency}) - Tax Type: {inc.tax_type}")
+            
+            if sources_added > 0:
+                flash(f"Successfully saved {sources_added} income sources!", "success")
+            else:
+                flash("No additional income sources were added.", "info")
 
             # Check which button was clicked
             if 'preview' in request.form:
@@ -313,7 +311,7 @@ def income():
 
         except Exception as e:
             db.session.rollback()
-            print(f"Database Error: {str(e)}")
+            print(f"ERROR IN INCOME FORM PROCESSING: {str(e)}")
             flash(f"An error occurred while saving income details: {str(e)}", "danger")
             
             # Re-create income entries list from the form data for re-rendering the form
@@ -337,48 +335,32 @@ def income():
                 i += 1
                 
             return render_template('budget/income.html', form=form, other_income=income_entries)
-        finally:
-            # Log the final transaction status
-            print(f"Database transaction {'succeeded' if db_transaction_success else 'failed'}")
 
     # Pre-fill form with existing data
     if primary_income:
         form.gross_income.data = primary_income.gross_income
         form.gross_income_frequency.data = primary_income.frequency
 
-    # Pre-populate additional income sources only if they exist in the database
-    # Force a fresh query from the database
-    db.session.expire_all()
+    # Pull fresh data from database for display
     other_income = GrossIncome.query.filter(
         GrossIncome.budget_id == budget.id,
         GrossIncome.category != "W2 Job"
     ).all()
 
-    print(f"Found {len(other_income)} other income sources for budget {budget.id}:")
+    print(f"Display: Found {len(other_income)} other income sources for budget {budget.id}:")
     for inc in other_income:
         print(f"  - {inc.source}: ${inc.gross_income} ({inc.frequency}) - Tax Type: {inc.tax_type}")
-
-    # Create a fresh form for the main fields
-    form = IncomeForm()
+        income_entries.append({
+            'category': inc.category,
+            'name': inc.source,
+            'amount': inc.gross_income,
+            'frequency': inc.frequency
+        })
     
     # Set main form fields
     if primary_income:
         form.gross_income.data = primary_income.gross_income
         form.gross_income_frequency.data = primary_income.frequency
-
-    # Clear any existing entries
-    while form.other_income_sources.data:
-        form.other_income_sources.pop_entry()
-    
-    # Create a custom list of income objects with simple attributes
-    # Only add existing income sources, don't include an empty one by default
-    for income in other_income:
-        income_entries.append({
-            'category': income.category,
-            'name': income.source,
-            'amount': income.gross_income,
-            'frequency': income.frequency
-        })
     
     # Return the form without any empty entries if none exist in the database
     return render_template('budget/income.html', form=form, other_income=income_entries)
