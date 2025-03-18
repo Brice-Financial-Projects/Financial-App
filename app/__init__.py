@@ -76,7 +76,7 @@ def create_app():
 
     # Import models (ensure all models are loaded for migrations)
     with app.app_context():
-        from app.models import Budget, User
+        from app.models import Budget, User, Profile
         
 
     # Register blueprints

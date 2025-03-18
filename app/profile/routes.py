@@ -7,9 +7,9 @@ from app.profile.forms import ProfileForm
 from app.models import Profile
 from datetime import datetime
 
-profile = Blueprint('profile', __name__)
+profile_bp = Blueprint('profile', __name__)
 
-@profile.route('/profile', methods=['GET', 'POST'])
+@profile_bp.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile_view():
     form = ProfileForm()
