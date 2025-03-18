@@ -493,9 +493,13 @@ def preview():
             expenses_by_category[item.category] = []
         expenses_by_category[item.category].append(item)
     
+    # Create a form for CSRF protection
+    from flask_wtf import FlaskForm
+    form = FlaskForm()
+    
     # Process form submission if this is a POST request
     if request.method == 'POST':
-        if 'calculate_budget' in request.form:
+        if form.validate_on_submit() and 'calculate_budget' in request.form:
             # Mark the budget as ready for calculation
             budget.status = 'ready'
             db.session.commit()
@@ -509,7 +513,8 @@ def preview():
         primary_income=primary_income,
         other_income=other_income,
         expenses_by_category=expenses_by_category,
-        profile=profile
+        profile=profile,
+        form=form
     )
 
 
