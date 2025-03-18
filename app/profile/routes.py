@@ -1,48 +1,95 @@
 """app/profile/routes.py"""
 
-from flask import render_template, redirect, url_for, flash, request
-from flask_login import current_user, login_required
+from flask import Blueprint, render_template, flash, redirect, url_for, request
+from flask_login import login_required, current_user
+from app import db
 from app.profile.forms import ProfileForm
-from app.models import Profile, db
-from app.profile import profile_bp
+from app.models import Profile
+from datetime import datetime
 
-@profile_bp.route('/profile', methods=['GET', 'POST'])
+profile = Blueprint('profile', __name__)
+
+@profile.route('/profile', methods=['GET', 'POST'])
 @login_required
-def profile():
+def profile_view():
     form = ProfileForm()
-    user_profile = Profile.query.filter_by(user_id=current_user.id).first()
-
+    
     if form.validate_on_submit():
+        # Get or create profile
+        user_profile = Profile.query.filter_by(user_id=current_user.id).first()
         if not user_profile:
-            user_profile = Profile(user_id=current_user.id)  # Create profile if it doesn't exist
+            user_profile = Profile(user_id=current_user.id)
+            db.session.add(user_profile)
 
-        # ✅ Ensure all data is correctly updated
+        # Update personal information
         user_profile.first_name = form.first_name.data
         user_profile.last_name = form.last_name.data
+        user_profile.date_of_birth = form.date_of_birth.data
+        user_profile.is_blind = form.is_blind.data
+        user_profile.is_student = form.is_student.data
+
+        # Update location and filing information
         user_profile.state = form.state.data
+        user_profile.filing_status = form.filing_status.data
+        user_profile.num_dependents = form.num_dependents.data
+
+        # Update employment information
         user_profile.income_type = form.income_type.data
-        user_profile.retirement_contribution_type = form.retirement_contribution_type.data  # ✅ Fixed missing field
-        user_profile.retirement_contribution = form.retirement_contribution_value.data
-        user_profile.pay_cycle = form.pay_cycle.data  # ✅ Fixed missing field
-        user_profile.benefit_deductions = form.monthly_benefit_deductions.data
+        user_profile.pay_cycle = form.pay_cycle.data
 
-        # ✅ Save the profile
-        db.session.add(user_profile)
-        db.session.commit()
+        # Update tax withholdings
+        user_profile.federal_additional_withholding = form.federal_additional_withholding.data
+        user_profile.state_additional_withholding = form.state_additional_withholding.data
 
-        flash("Profile updated successfully!", "success")
-        return redirect(url_for('profile.profile'))  # ✅ Redirect to dashboard after updating
+        # Update retirement contributions
+        user_profile.retirement_contribution_type = form.retirement_contribution_type.data
+        user_profile.retirement_contribution = form.retirement_contribution.data
 
-    # ✅ Prepopulate form with existing profile data if available
-    elif user_profile:
-        form.first_name.data = user_profile.first_name
-        form.last_name.data = user_profile.last_name
-        form.state.data = user_profile.state
-        form.income_type.data = user_profile.income_type
-        form.retirement_contribution_type.data = user_profile.retirement_contribution_type  # ✅ Fixed missing field
-        form.retirement_contribution_value.data = user_profile.retirement_contribution
-        form.pay_cycle.data = user_profile.pay_cycle  # ✅ Fixed missing field
-        form.monthly_benefit_deductions.data = user_profile.benefit_deductions
+        # Update pre-tax benefits
+        user_profile.health_insurance_premium = form.health_insurance_premium.data
+        user_profile.hsa_contribution = form.hsa_contribution.data
+        user_profile.fsa_contribution = form.fsa_contribution.data
+        user_profile.other_pretax_benefits = form.other_pretax_benefits.data
+
+        # Calculate and update total benefit deductions
+        user_profile.benefit_deductions = (
+            user_profile.health_insurance_premium +
+            user_profile.hsa_contribution +
+            user_profile.fsa_contribution +
+            user_profile.other_pretax_benefits
+        )
+
+        try:
+            db.session.commit()
+            flash('Profile updated successfully!', 'success')
+            return redirect(url_for('main.dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash('An error occurred while updating your profile. Please try again.', 'danger')
+            print(f"Error updating profile: {str(e)}")  # Log the error
+
+    elif request.method == 'GET':
+        # Pre-populate form if profile exists
+        user_profile = Profile.query.filter_by(user_id=current_user.id).first()
+        if user_profile:
+            form.first_name.data = user_profile.first_name
+            form.last_name.data = user_profile.last_name
+            form.date_of_birth.data = user_profile.date_of_birth
+            form.is_blind.data = user_profile.is_blind
+            form.is_student.data = user_profile.is_student
+            form.state.data = user_profile.state
+            form.filing_status.data = user_profile.filing_status
+            form.num_dependents.data = user_profile.num_dependents
+            form.income_type.data = user_profile.income_type
+            form.pay_cycle.data = user_profile.pay_cycle
+            form.federal_additional_withholding.data = user_profile.federal_additional_withholding
+            form.state_additional_withholding.data = user_profile.state_additional_withholding
+            form.retirement_contribution_type.data = user_profile.retirement_contribution_type
+            form.retirement_contribution.data = user_profile.retirement_contribution
+            form.health_insurance_premium.data = user_profile.health_insurance_premium
+            form.hsa_contribution.data = user_profile.hsa_contribution
+            form.fsa_contribution.data = user_profile.fsa_contribution
+            form.other_pretax_benefits.data = user_profile.other_pretax_benefits
 
     return render_template('profile/profile.html', form=form)
 

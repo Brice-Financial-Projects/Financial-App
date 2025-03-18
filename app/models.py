@@ -5,6 +5,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import JSON
+from datetime import datetime
 
 
 # -------------------- User Model --------------------
@@ -56,15 +57,37 @@ class Profile(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
+    
+    # Personal Information
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
+    date_of_birth = db.Column(db.Date)
+    is_blind = db.Column(db.Boolean, default=False)
+    is_student = db.Column(db.Boolean, default=False)
+    
+    # Location and Filing Information
     state = db.Column(db.String(2), nullable=False)
-    income_type = db.Column(db.String(20), nullable=False, default="Salary")  # ✅ Reverting back
-    tax_withholding = db.Column(db.Float, default=0)
-    retirement_contribution_type = db.Column(db.String(10), nullable=False)
-    retirement_contribution = db.Column(db.Float, default=0)
+    filing_status = db.Column(db.String(20), nullable=False, default="single")
+    num_dependents = db.Column(db.Integer, default=0)
+    
+    # Employment Information
+    income_type = db.Column(db.String(20), nullable=False, default="Salary")
     pay_cycle = db.Column(db.String(20), nullable=False)
-    benefit_deductions = db.Column(db.Float, default=0)
+    
+    # Tax Withholdings
+    federal_additional_withholding = db.Column(db.Float, default=0.0)
+    state_additional_withholding = db.Column(db.Float, default=0.0)
+    
+    # Retirement Contributions
+    retirement_contribution_type = db.Column(db.String(10), nullable=False)
+    retirement_contribution = db.Column(db.Float, default=0.0)
+    
+    # Pre-tax Benefits
+    health_insurance_premium = db.Column(db.Float, default=0.0)
+    hsa_contribution = db.Column(db.Float, default=0.0)
+    fsa_contribution = db.Column(db.Float, default=0.0)
+    other_pretax_benefits = db.Column(db.Float, default=0.0)
+    benefit_deductions = db.Column(db.Float, default=0.0)  # Total of all benefits
 
     # Relationships
     user = db.relationship("User", back_populates="profile")
@@ -72,6 +95,27 @@ class Profile(db.Model):
 
     def __repr__(self):
         return f"<Profile {self.first_name} {self.last_name}, State: {self.state}>"
+    
+    @property
+    def total_pretax_deductions(self):
+        """Calculate total pre-tax deductions."""
+        return (
+            self.health_insurance_premium +
+            self.hsa_contribution +
+            self.fsa_contribution +
+            self.other_pretax_benefits +
+            (self.retirement_contribution if self.retirement_contribution_type == "pretax" else 0.0)
+        )
+    
+    @property
+    def age(self):
+        """Calculate age based on date of birth."""
+        if not self.date_of_birth:
+            return None
+        today = datetime.now()
+        return today.year - self.date_of_birth.year - (
+            (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day)
+        )
 
 
 
