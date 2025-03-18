@@ -460,8 +460,163 @@ def budget_name():
     return render_template('budget/name.html', form=form, existing_budgets=existing_budgets)
 
 
+@budget_bp.route('/preview', methods=['GET', 'POST'])
+@login_required
+def preview():
+    """Display all budget details for review before final submission."""
+    # Get the user's profile
+    profile = Profile.query.filter_by(user_id=current_user.id).first()
+    if not profile:
+        flash("Please complete your profile before previewing your budget.", "warning")
+        return redirect(url_for('profile.profile'))
+    
+    # Get the most recent budget
+    budget = Budget.query.filter_by(user_id=current_user.id).order_by(Budget.id.desc()).first()
+    if not budget:
+        flash("No budget found. Please create a budget first.", "warning")
+        return redirect(url_for('budget.budget_name'))
+    
+    print(f"Loading preview for budget: {budget.id} - {budget.name}")
+    
+    # Get all income sources
+    income_sources = GrossIncome.query.filter_by(budget_id=budget.id).all()
+    primary_income = next((income for income in income_sources if income.category == "W2 Job"), None)
+    other_income = [income for income in income_sources if income.category != "W2 Job"]
+    
+    # Get all budget items (expenses)
+    budget_items = BudgetItem.query.filter_by(budget_id=budget.id).all()
+    
+    # Organize budget items by category for display
+    expenses_by_category = {}
+    for item in budget_items:
+        if item.category not in expenses_by_category:
+            expenses_by_category[item.category] = []
+        expenses_by_category[item.category].append(item)
+    
+    # Process form submission if this is a POST request
+    if request.method == 'POST':
+        if 'calculate_budget' in request.form:
+            # Mark the budget as ready for calculation
+            budget.status = 'ready'
+            db.session.commit()
+            flash("Budget ready for calculation! Proceeding to final budget page.", "success")
+            return redirect(url_for('budget.calculate', budget_id=budget.id))
+    
+    # Return the budget review template with all data
+    return render_template(
+        'budget/preview.html',
+        budget=budget,
+        primary_income=primary_income,
+        other_income=other_income,
+        expenses_by_category=expenses_by_category,
+        profile=profile
+    )
 
 
+@budget_bp.route('/calculate/<int:budget_id>', methods=['GET'])
+@login_required
+def calculate(budget_id):
+    """Calculate the final budget with tax estimations and display the results."""
+    # Get the budget
+    budget = Budget.query.get_or_404(budget_id)
+    
+    if budget.user_id != current_user.id:
+        flash("You do not have permission to view this budget.", "danger")
+        return redirect(url_for('main.dashboard'))
+    
+    # Get the user's profile
+    profile = Profile.query.filter_by(user_id=current_user.id).first()
+    
+    # Get all income sources
+    income_sources = GrossIncome.query.filter_by(budget_id=budget.id).all()
+    
+    # Get all budget items (expenses)
+    budget_items = BudgetItem.query.filter_by(budget_id=budget.id).all()
+    
+    try:
+        # Calculate tax withdrawals based on state and income type
+        tax_data = calculate_tax_withdrawals(budget, income_sources, profile)
+        
+        # Calculate the final budget
+        budget_result = calculate_final_budget(budget, income_sources, budget_items, tax_data, profile)
+        
+        # Update budget status to 'finalized'
+        budget.status = 'finalized'
+        db.session.commit()
+        
+        # Render the budget results page
+        return render_template(
+            'budget/results.html',
+            budget=budget,
+            income_sources=income_sources,
+            budget_items=budget_items,
+            tax_data=tax_data,
+            budget_result=budget_result
+        )
+    
+    except Exception as e:
+        db.session.rollback()
+        flash(f"An error occurred while calculating your budget: {str(e)}", "danger")
+        return redirect(url_for('budget.preview'))
+
+
+@budget_bp.route('/download/<int:budget_id>', methods=['GET'])
+@login_required
+def download_budget(budget_id):
+    """Generate and download an Excel file with the budget details."""
+    # Get the budget
+    budget = Budget.query.get_or_404(budget_id)
+    
+    if budget.user_id != current_user.id:
+        flash("You do not have permission to download this budget.", "danger")
+        return redirect(url_for('main.dashboard'))
+    
+    # Get the user's profile
+    profile = Profile.query.filter_by(user_id=current_user.id).first()
+    
+    # Get all income sources
+    income_sources = GrossIncome.query.filter_by(budget_id=budget.id).all()
+    
+    # Get all budget items (expenses)
+    budget_items = BudgetItem.query.filter_by(budget_id=budget.id).all()
+    
+    try:
+        # Calculate tax withdrawals
+        tax_data = calculate_tax_withdrawals(budget, income_sources, profile)
+        
+        # Calculate the final budget
+        budget_result = calculate_final_budget(budget, income_sources, budget_items, tax_data, profile)
+        
+        # Create Excel file
+        from datetime import datetime
+        budget_data = {
+            'budget_name': budget.name,
+            'created_date': datetime.now().strftime('%Y-%m-%d'),
+            'monthly_income': budget_result['monthly_gross_income'],
+            'net_income': budget_result['monthly_net_income'],
+            'total_expenses': budget_result['total_expenses'],
+            'remaining_money': budget_result['remaining_money'],
+            'details': {
+                'Income Sources': {source.source: source.gross_income for source in income_sources},
+                'Expenses': {f"{item.category} - {item.name}": (item.preferred_payment if item.preferred_payment > 0 else item.minimum_payment) for item in budget_items},
+                'Tax Withholdings': {
+                    'Federal Tax': tax_data['total_monthly_federal_tax'],
+                    'State Tax': tax_data['total_monthly_state_tax'],
+                    'FICA Tax': tax_data['total_monthly_fica_tax']
+                },
+                'Deductions': {
+                    'Retirement Contribution': profile.retirement_contribution,
+                    'Benefit Deductions': profile.benefit_deductions
+                }
+            }
+        }
+        
+        # Generate the Excel file
+        return create_excel(budget_data)
+        
+    except Exception as e:
+        flash(f"An error occurred while generating the Excel file: {str(e)}", "danger")
+        return redirect(url_for('budget.calculate', budget_id=budget_id))
 
 
 
