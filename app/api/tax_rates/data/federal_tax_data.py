@@ -1,144 +1,154 @@
-"""Sample federal tax bracket data for testing and fallback."""
+"""Federal tax data for various tax years."""
+from typing import List, Dict, Optional
+from ..models import TaxBracket, FederalTaxData
 
-from typing import Dict, List, Any
+# 2024 Tax Brackets
+FEDERAL_TAX_BRACKETS_2024 = {
+    'single': [
+        TaxBracket(0.10, 0, 11600),
+        TaxBracket(0.12, 11600, 47150),
+        TaxBracket(0.22, 47150, 100525),
+        TaxBracket(0.24, 100525, 191950),
+        TaxBracket(0.32, 191950, 243725),
+        TaxBracket(0.35, 243725, 609350),
+        TaxBracket(0.37, 609350, None)
+    ],
+    'married_joint': [
+        TaxBracket(0.10, 0, 23200),
+        TaxBracket(0.12, 23200, 94300),
+        TaxBracket(0.22, 94300, 201050),
+        TaxBracket(0.24, 201050, 383900),
+        TaxBracket(0.32, 383900, 487450),
+        TaxBracket(0.35, 487450, 731200),
+        TaxBracket(0.37, 731200, None)
+    ],
+    'married_separate': [
+        TaxBracket(0.10, 0, 11600),
+        TaxBracket(0.12, 11600, 47150),
+        TaxBracket(0.22, 47150, 100525),
+        TaxBracket(0.24, 100525, 191950),
+        TaxBracket(0.32, 191950, 243725),
+        TaxBracket(0.35, 243725, 365600),
+        TaxBracket(0.37, 365600, None)
+    ],
+    'head_household': [
+        TaxBracket(0.10, 0, 16550),
+        TaxBracket(0.12, 16550, 63100),
+        TaxBracket(0.22, 63100, 100500),
+        TaxBracket(0.24, 100500, 191950),
+        TaxBracket(0.32, 191950, 243700),
+        TaxBracket(0.35, 243700, 609350),
+        TaxBracket(0.37, 609350, None)
+    ]
+}
 
-# 2023 tax bracket data
-FEDERAL_TAX_DATA_2023 = {
-    "single": {
-        "year": 2023,
-        "brackets": [
-            {"min_income": 0, "max_income": 11000, "rate": 0.10},
-            {"min_income": 11000, "max_income": 44725, "rate": 0.12},
-            {"min_income": 44725, "max_income": 95375, "rate": 0.22},
-            {"min_income": 95375, "max_income": 182100, "rate": 0.24},
-            {"min_income": 182100, "max_income": 231250, "rate": 0.32},
-            {"min_income": 231250, "max_income": 578125, "rate": 0.35},
-            {"min_income": 578125, "max_income": None, "rate": 0.37}
-        ],
-        "standard_deduction": 13850.0
+# 2023 Tax Brackets
+FEDERAL_TAX_BRACKETS_2023 = {
+    'single': [
+        TaxBracket(0.10, 0, 11000),
+        TaxBracket(0.12, 11000, 44725),
+        TaxBracket(0.22, 44725, 95375),
+        TaxBracket(0.24, 95375, 182100),
+        TaxBracket(0.32, 182100, 231250),
+        TaxBracket(0.35, 231250, 578125),
+        TaxBracket(0.37, 578125, None)
+    ],
+    'married_joint': [
+        TaxBracket(0.10, 0, 22000),
+        TaxBracket(0.12, 22000, 89450),
+        TaxBracket(0.22, 89450, 190750),
+        TaxBracket(0.24, 190750, 364200),
+        TaxBracket(0.32, 364200, 462500),
+        TaxBracket(0.35, 462500, 693750),
+        TaxBracket(0.37, 693750, None)
+    ],
+    'married_separate': [
+        TaxBracket(0.10, 0, 11000),
+        TaxBracket(0.12, 11000, 44725),
+        TaxBracket(0.22, 44725, 95375),
+        TaxBracket(0.24, 95375, 182100),
+        TaxBracket(0.32, 182100, 231250),
+        TaxBracket(0.35, 231250, 346875),
+        TaxBracket(0.37, 346875, None)
+    ],
+    'head_household': [
+        TaxBracket(0.10, 0, 15700),
+        TaxBracket(0.12, 15700, 59850),
+        TaxBracket(0.22, 59850, 95350),
+        TaxBracket(0.24, 95350, 182100),
+        TaxBracket(0.32, 182100, 231250),
+        TaxBracket(0.35, 231250, 578100),
+        TaxBracket(0.37, 578100, None)
+    ]
+}
+
+# Standard Deductions
+STANDARD_DEDUCTIONS = {
+    2024: {
+        'single': 14600,
+        'married_joint': 29200,
+        'married_separate': 14600,
+        'head_household': 21900
     },
-    "married_joint": {
-        "year": 2023,
-        "brackets": [
-            {"min_income": 0, "max_income": 22000, "rate": 0.10},
-            {"min_income": 22000, "max_income": 89450, "rate": 0.12},
-            {"min_income": 89450, "max_income": 190750, "rate": 0.22},
-            {"min_income": 190750, "max_income": 364200, "rate": 0.24},
-            {"min_income": 364200, "max_income": 462500, "rate": 0.32},
-            {"min_income": 462500, "max_income": 693750, "rate": 0.35},
-            {"min_income": 693750, "max_income": None, "rate": 0.37}
-        ],
-        "standard_deduction": 27700.0
-    },
-    "married_separate": {
-        "year": 2023,
-        "brackets": [
-            {"min_income": 0, "max_income": 11000, "rate": 0.10},
-            {"min_income": 11000, "max_income": 44725, "rate": 0.12},
-            {"min_income": 44725, "max_income": 95375, "rate": 0.22},
-            {"min_income": 95375, "max_income": 182100, "rate": 0.24},
-            {"min_income": 182100, "max_income": 231250, "rate": 0.32},
-            {"min_income": 231250, "max_income": 346875, "rate": 0.35},
-            {"min_income": 346875, "max_income": None, "rate": 0.37}
-        ],
-        "standard_deduction": 13850.0
-    },
-    "head_of_household": {
-        "year": 2023,
-        "brackets": [
-            {"min_income": 0, "max_income": 15700, "rate": 0.10},
-            {"min_income": 15700, "max_income": 59850, "rate": 0.12},
-            {"min_income": 59850, "max_income": 95350, "rate": 0.22},
-            {"min_income": 95350, "max_income": 182100, "rate": 0.24},
-            {"min_income": 182100, "max_income": 231250, "rate": 0.32},
-            {"min_income": 231250, "max_income": 578100, "rate": 0.35},
-            {"min_income": 578100, "max_income": None, "rate": 0.37}
-        ],
-        "standard_deduction": 20800.0
+    2023: {
+        'single': 13850,
+        'married_joint': 27700,
+        'married_separate': 13850,
+        'head_household': 20800
     }
 }
 
-# 2024 tax bracket data (projected)
-FEDERAL_TAX_DATA_2024 = {
-    "single": {
-        "year": 2024,
-        "brackets": [
-            {"min_income": 0, "max_income": 11600, "rate": 0.10},
-            {"min_income": 11600, "max_income": 47150, "rate": 0.12},
-            {"min_income": 47150, "max_income": 100525, "rate": 0.22},
-            {"min_income": 100525, "max_income": 191950, "rate": 0.24},
-            {"min_income": 191950, "max_income": 243725, "rate": 0.32},
-            {"min_income": 243725, "max_income": 609350, "rate": 0.35},
-            {"min_income": 609350, "max_income": None, "rate": 0.37}
-        ],
-        "standard_deduction": 14600.0
-    },
-    "married_joint": {
-        "year": 2024,
-        "brackets": [
-            {"min_income": 0, "max_income": 23200, "rate": 0.10},
-            {"min_income": 23200, "max_income": 94300, "rate": 0.12},
-            {"min_income": 94300, "max_income": 201050, "rate": 0.22},
-            {"min_income": 201050, "max_income": 383900, "rate": 0.24},
-            {"min_income": 383900, "max_income": 487450, "rate": 0.32},
-            {"min_income": 487450, "max_income": 731200, "rate": 0.35},
-            {"min_income": 731200, "max_income": None, "rate": 0.37}
-        ],
-        "standard_deduction": 29200.0
-    },
-    "married_separate": {
-        "year": 2024,
-        "brackets": [
-            {"min_income": 0, "max_income": 11600, "rate": 0.10},
-            {"min_income": 11600, "max_income": 47150, "rate": 0.12},
-            {"min_income": 47150, "max_income": 100525, "rate": 0.22},
-            {"min_income": 100525, "max_income": 191950, "rate": 0.24},
-            {"min_income": 191950, "max_income": 243725, "rate": 0.32},
-            {"min_income": 243725, "max_income": 365600, "rate": 0.35},
-            {"min_income": 365600, "max_income": None, "rate": 0.37}
-        ],
-        "standard_deduction": 14600.0
-    },
-    "head_of_household": {
-        "year": 2024,
-        "brackets": [
-            {"min_income": 0, "max_income": 16550, "rate": 0.10},
-            {"min_income": 16550, "max_income": 63100, "rate": 0.12},
-            {"min_income": 63100, "max_income": 100500, "rate": 0.22},
-            {"min_income": 100500, "max_income": 191950, "rate": 0.24},
-            {"min_income": 191950, "max_income": 243700, "rate": 0.32},
-            {"min_income": 243700, "max_income": 609350, "rate": 0.35},
-            {"min_income": 609350, "max_income": None, "rate": 0.37}
-        ],
-        "standard_deduction": 21900.0
-    }
+# Tax Data by Year
+TAX_DATA = {
+    2024: FederalTaxData(
+        year=2024,
+        brackets=FEDERAL_TAX_BRACKETS_2024,
+        standard_deduction=STANDARD_DEDUCTIONS[2024]
+    ),
+    2023: FederalTaxData(
+        year=2023,
+        brackets=FEDERAL_TAX_BRACKETS_2023,
+        standard_deduction=STANDARD_DEDUCTIONS[2023]
+    )
 }
 
-# Collection of all years
-FEDERAL_TAX_DATA: Dict[int, Dict[str, Any]] = {
-    2023: FEDERAL_TAX_DATA_2023,
-    2024: FEDERAL_TAX_DATA_2024
-}
+def get_federal_tax_brackets(year: int) -> Optional[Dict[str, List[TaxBracket]]]:
+    """Get federal tax brackets for a specific year."""
+    tax_data = TAX_DATA.get(year)
+    return tax_data.brackets if tax_data else None
 
+def get_standard_deduction(year: int) -> Optional[Dict[str, float]]:
+    """Get standard deduction amounts for a specific year."""
+    return STANDARD_DEDUCTIONS.get(year)
 
-def get_federal_tax_data(year: int, filing_status: str = "single") -> Dict[str, Any]:
-    """
-    Get federal tax data for the given year and filing status.
+def get_available_years() -> List[int]:
+    """Get list of available tax years."""
+    return sorted(TAX_DATA.keys())
+
+def calculate_tax(income: float, year: int, filing_status: str) -> float:
+    """Calculate federal tax for given income, year, and filing status."""
+    tax_data = TAX_DATA.get(year)
+    if not tax_data or filing_status not in tax_data.brackets:
+        raise ValueError(f"Tax data not available for year {year} and filing status {filing_status}")
+
+    brackets = tax_data.brackets[filing_status]
+    standard_deduction = tax_data.standard_deduction[filing_status]
     
-    Args:
-        year: Tax year
-        filing_status: Filing status (single, married_joint, etc.)
+    # Apply standard deduction
+    taxable_income = max(0, income - standard_deduction)
+    
+    total_tax = 0
+    for bracket in brackets:
+        if taxable_income <= 0:
+            break
+            
+        if bracket.max_income is None:
+            # Top bracket
+            bracket_income = taxable_income
+        else:
+            bracket_income = min(taxable_income, bracket.max_income - bracket.min_income)
         
-    Returns:
-        Dictionary with tax bracket data
-    """
-    # Use most recent year if requested year is not available
-    if year not in FEDERAL_TAX_DATA:
-        available_years = sorted(FEDERAL_TAX_DATA.keys())
-        year = available_years[-1]
+        total_tax += bracket_income * bracket.rate
+        taxable_income -= bracket_income
     
-    # Use single filing status if requested status is not available
-    if filing_status not in FEDERAL_TAX_DATA[year]:
-        filing_status = "single"
-    
-    return FEDERAL_TAX_DATA[year][filing_status] 
+    return round(total_tax, 2) 
