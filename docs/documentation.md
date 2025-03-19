@@ -41,5 +41,60 @@
       - Add tax summary to budget preview
       - Add tax withholding calculator
       - Add annual tax projection report
+
+- Date: 3/18/2025 (Update 2)
+    Progress
+      - Implemented internal Tax Rate API with the following endpoints:
+
+        1. Get Federal Tax Brackets
+           ```
+           GET /api/v1/tax/federal/<year>
+           ```
+           Returns federal tax brackets and standard deduction for specified year.
+
+        2. Get State Tax Brackets
+           ```
+           GET /api/v1/tax/state/<state>/<year>
+           ```
+           Returns state tax brackets and information for specified state and year.
+
+        3. Get FICA Rates
+           ```
+           GET /api/v1/tax/fica/<year>
+           ```
+           Returns Social Security and Medicare rates for specified year.
+
+        4. Calculate Taxes
+           ```
+           POST /api/v1/tax/calculate
+           ```
+           Calculates total tax liability based on provided income and details.
+           Request body example:
+           ```json
+           {
+               "year": 2024,
+               "income": 75000,
+               "state": "CA",
+               "filing_status": "single",
+               "pay_frequency": "biweekly",
+               "additional_withholding": 100,
+               "pretax_deductions": 5000
+           }
+           ```
+
+        5. Get Available Tax Years
+           ```
+           GET /api/v1/tax/years
+           ```
+           Returns list of years for which tax data is available.
+
+    Needs Improvement
+      - Implement data modules for federal, state, and FICA tax calculations
+      - Add request/response models validation
+      - Add comprehensive API tests
+      - Add API documentation with example responses
+      - Implement caching for API responses
+      - Add rate limiting for API endpoints
+      - Add authentication for sensitive endpoints
       
 
