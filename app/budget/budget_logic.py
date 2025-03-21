@@ -37,7 +37,7 @@ from decimal import Decimal, InvalidOperation, DivisionByZero
 from dataclasses import dataclass
 
 from app.api.tax_rates.client import TaxRateClient
-from app.models import Budget, Income, OtherIncome
+from app.models import Budget, GrossIncome, OtherIncome
 
 
 class PaymentSchedule(Enum):
@@ -56,44 +56,60 @@ class PaymentSchedule(Enum):
 
 
 class BudgetCalculator:
-    def __init__(self, budget_id: int):
-        self.budget = Budget.query.get(budget_id)
-        self.tax_client = TaxRateClient()
+    def __init__(self, budget: Budget):
+        """
+        Initialize the BudgetCalculator with a budget instance.
 
+        Args:
+            budget: Budget instance containing the financial data
+        """
+        self.budget = budget
+        self.tax_client = TaxRateClient()
         self.schedule_multipliers = {
             PaymentSchedule.ANNUALLY: Decimal('1'),
             PaymentSchedule.MONTHLY: Decimal('12'),
-            PaymentSchedule.BIMONTHLY: Decimal('24'),
             PaymentSchedule.BIWEEKLY: Decimal('26'),
             PaymentSchedule.WEEKLY: Decimal('52')
         }
 
     def calculate_gross_income(self) -> Dict[str, Decimal]:
-        """Calculate total gross income from all sources"""
-        annual_income = Decimal('0')
-        income_breakdown = {}
+        """
+        Calculate total gross income including salary and other income sources.
 
-        # Primary Income (W2)
-        if self.budget.primary_income:
-            schedule = PaymentSchedule(self.budget.primary_income.payment_schedule)
-            annual_amount = (Decimal(str(self.budget.primary_income.amount)) *
-                             self.schedule_multipliers[schedule])
-            income_breakdown['primary_income'] = annual_amount
-            annual_income += annual_amount
+        Returns:
+            Dict containing total annual gross income and its components
+        """
+        try:
+            # Get primary income from GrossIncome
+            gross_income = GrossIncome.query.filter_by(budget_id=self.budget.id).first()
+            if not gross_income:
+                raise ValueError("No gross income found for this budget")
 
-        # Other Income Sources
-        for income in self.budget.other_incomes:
-            schedule = PaymentSchedule(income.payment_schedule)
-            annual_amount = (Decimal(str(income.amount)) *
-                             self.schedule_multipliers[schedule])
+            base_salary = Decimal(str(gross_income.amount or 0))
 
-            income_breakdown[income.income_type] = annual_amount
-            annual_income += annual_amount
+            # Calculate other income
+            other_income_total = Decimal('0')
+            other_incomes = OtherIncome.query.filter_by(budget_id=self.budget.id).all()
 
-        return {
-            'total_annual_gross': annual_income,
-            'breakdown': income_breakdown
-        }
+            for income in other_incomes:
+                if income.amount:
+                    other_amount = Decimal(str(income.amount))
+                    # Normalize to annual amount based on payment schedule
+                    if income.schedule:
+                        multiplier = self.schedule_multipliers.get(income.schedule, Decimal('1'))
+                        other_amount *= multiplier
+                    other_income_total += other_amount
+
+            total_annual_gross = base_salary + other_income_total
+
+            return {
+                'base_salary': base_salary,
+                'other_income': other_income_total,
+                'total_annual_gross': total_annual_gross
+            }
+
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"Error calculating gross income: {str(e)}")
 
     def calculate_pre_tax_deductions(self) -> Dict[str, Decimal]:
         """Calculate all pre-tax deductions"""
@@ -184,6 +200,41 @@ class BudgetCalculator:
 
         withholdings['total_withholdings'] = sum(withholdings.values())
         return withholdings
+
+
+def calculate_budget(budget_id: int) -> Dict:
+    """
+    Standalone function that uses BudgetCalculator to calculate budget details.
+
+    Args:
+        budget_id: ID of the budget to calculate
+
+    Returns:
+        Dictionary containing all budget calculations based on user input
+    """
+    try:
+        budget = Budget.query.get_or_404(budget_id)
+        calculator = BudgetCalculator(budget)
+        return calculator.calculate_budget()
+    except Exception as e:
+        raise ValueError(f"Error calculating budget: {str(e)}")
+
+
+def create_excel(budget_data: Dict) -> bytes:
+    """
+    Standalone function that uses BudgetCalculator to create Excel file.
+
+    Args:
+        budget_data: Dictionary containing budget data
+
+    Returns:
+        Excel file as bytes
+    """
+    try:
+        calculator = BudgetCalculator(budget_data['budget'])
+        return calculator.create_excel()
+    except Exception as e:
+        raise ValueError(f"Error creating Excel file: {str(e)}")
 
 
 @dataclass
@@ -286,3 +337,8 @@ def calculate_net_income(self) -> NetIncomeResult:
         raise ValueError(f"Invalid calculation: {str(e)}")
     except Exception as e:
         raise ValueError(f"Error calculating net income: {str(e)}")
+
+
+
+# Explicitly export these functions
+__all__ = ['calculate_budget', 'create_excel']

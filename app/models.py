@@ -149,6 +149,7 @@ class Budget(db.Model):
     profile = db.relationship("Profile", back_populates="budgets")
     budget_items = db.relationship("BudgetItem", back_populates="budget", cascade="all, delete-orphan")
     gross_income_sources = db.relationship("GrossIncome", back_populates="budget", cascade="all, delete-orphan")
+    other_income_sources = db.relationship("OtherIncome", back_populates="budget", cascade="all, delete-orphan")
 
     # Properties for dynamic calculations
     @property
@@ -224,4 +225,24 @@ class GrossIncome(db.Model):
 
     def __repr__(self):
         return f"<GrossIncome {self.source} - ${self.gross_income} ({self.frequency}) - Tax: {self.tax_type}, State Tax: {self.state_tax_ref}>"
+
+
+# ---------------------- Other Income Model --------------------------------
+class OtherIncome(db.Model):
+    """Model for additional income sources."""
+    __tablename__ = "other_income"
+
+    id = db.Column(db.Integer, primary_key=True)
+    budget_id = db.Column(db.Integer, db.ForeignKey('budgets.id'), nullable=False)  # Note: 'budgets' not 'budget'
+    category = db.Column(db.String(50), nullable=False)
+    source = db.Column(db.String(100), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    frequency = db.Column(db.String(20), nullable=False, default="monthly")
+    created_at = db.Column(db.DateTime, server_default=func.now(), nullable=False)
+
+    # Relationship
+    budget = db.relationship("Budget", back_populates="other_income_sources")
+
+    def __repr__(self):
+        return f"<OtherIncome {self.source} - ${self.amount} ({self.frequency})>"
 
