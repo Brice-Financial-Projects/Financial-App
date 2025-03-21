@@ -85,12 +85,14 @@ def create_app():
         from app.main.routes import main_bp
         from app.auth.routes import auth_bp
         from app.profile.routes import profile_bp
-        from app.api.tax_rates import tax_rates_bp
+        from .api.tax_rates.routes import federal_tax_bp
+        # from app.api.tax_rates import tax_rates_bp
         app.register_blueprint(budget_bp, url_prefix="/budget")
         app.register_blueprint(main_bp, url_prefix="/")
         app.register_blueprint(auth_bp, url_prefix="/auth")
         app.register_blueprint(profile_bp)
-        app.register_blueprint(tax_rates_bp)  # API endpoints will be at /api/v1/tax/...
+        # app.register_blueprint(tax_rates_bp)  # API endpoints will be at /api/v1/tax/...
+        app.register_blueprint(federal_tax_bp)
 
     # Error handlers
     @app.errorhandler(404)

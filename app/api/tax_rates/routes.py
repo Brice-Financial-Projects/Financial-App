@@ -9,28 +9,121 @@ from .data import federal_tax_data, state_tax_data, fica_tax_data
 from datetime import datetime
 from http import HTTPStatus
 
-@tax_rates_bp.route('/federal/<int:year>', methods=['GET'])
-def get_federal_tax_brackets(year):
-    """Get federal tax brackets for a specific year."""
-    try:
-        # Get the tax brackets for the specified year
-        brackets = federal_tax_data.get_federal_tax_brackets(year)
-        if not brackets:
-            return jsonify({
-                'error': 'Tax brackets not found for specified year'
-            }), HTTPStatus.NOT_FOUND
+# app/api/tax_rates/routes.py
 
+from flask import Blueprint, request, jsonify
+from .data.federal_tax_data import (
+    get_federal_tax_brackets,
+    get_standard_deduction,
+    get_available_years,
+    calculate_tax
+)
+
+federal_tax_bp = Blueprint('federal_tax', __name__)
+
+
+@federal_tax_bp.route('/api/v1/federal/tax-brackets', methods=['GET'])
+def get_tax_brackets():
+    """Get federal tax brackets for a specific year"""
+    year = request.args.get('year', type=int)
+
+    if not year:
+        return jsonify({
+            'error': 'Year parameter is required'
+        }), 400
+
+    try:
+        brackets = get_federal_tax_brackets(year)
         return jsonify({
             'year': year,
-            'brackets': [bracket.to_dict() for bracket in brackets],
-            'standard_deduction': federal_tax_data.get_standard_deduction(year)
-        }), HTTPStatus.OK
+            'brackets': brackets
+        })
+    except ValueError as e:
+        return jsonify({
+            'error': str(e)
+        }), 404
 
+
+@federal_tax_bp.route('/api/v1/federal/standard-deduction', methods=['GET'])
+def get_deduction():
+    """Get standard deduction for a specific year and filing status"""
+    year = request.args.get('year', type=int)
+    filing_status = request.args.get('filing_status')
+
+    if not year or not filing_status:
+        return jsonify({
+            'error': 'Both year and filing_status parameters are required'
+        }), 400
+
+    try:
+        deduction = get_standard_deduction(year, filing_status)
+        return jsonify({
+            'year': year,
+            'filing_status': filing_status,
+            'standard_deduction': deduction
+        })
+    except ValueError as e:
+        return jsonify({
+            'error': str(e)
+        }), 404
+
+
+@federal_tax_bp.route('/api/v1/federal/calculate', methods=['POST'])
+def calculate_federal_tax():
+    """Calculate federal tax based on income and other parameters"""
+    data = request.get_json()
+
+    required_fields = ['income', 'year', 'filing_status']
+    if not all(field in data for field in required_fields):
+        return jsonify({
+            'error': f'Missing required fields. Required: {required_fields}'
+        }), 400
+
+    try:
+        income = float(data['income'])
+        year = int(data['year'])
+        filing_status = data['filing_status']
+
+        # Optional parameters
+        itemized_deductions = data.get('itemized_deductions', 0)
+
+        tax_result = calculate_tax(
+            income=income,
+            year=year,
+            filing_status=filing_status,
+            itemized_deductions=itemized_deductions
+        )
+
+        return jsonify({
+            'income': income,
+            'year': year,
+            'filing_status': filing_status,
+            'tax_brackets_applied': tax_result['brackets_used'],
+            'taxable_income': tax_result['taxable_income'],
+            'total_tax': tax_result['total_tax'],
+            'effective_rate': tax_result['effective_rate'],
+            'marginal_rate': tax_result['marginal_rate']
+        })
+
+    except ValueError as e:
+        return jsonify({
+            'error': str(e)
+        }), 400
     except Exception as e:
         return jsonify({
-            'error': 'Internal server error',
-            'message': str(e)
-        }), HTTPStatus.INTERNAL_SERVER_ERROR
+            'error': 'An unexpected error occurred',
+            'details': str(e)
+        }), 500
+
+
+@federal_tax_bp.route('/api/v1/federal/available-years', methods=['GET'])
+def available_tax_years():
+    """Get list of available tax years"""
+    years = get_available_years()
+    return jsonify({
+        'available_years': years
+    })
+
 
 @tax_rates_bp.route('/state/<string:state>/<int:year>', methods=['GET'])
 def get_state_tax_brackets(state, year):
