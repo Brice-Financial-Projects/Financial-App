@@ -31,14 +31,17 @@ Notes:
 
 # app/budget/budget_logic.py
 
+import logging
 from enum import Enum
 from typing import TypedDict, Dict
 from decimal import Decimal, InvalidOperation, DivisionByZero
 from dataclasses import dataclass
+from functools import lru_cache
 
 from app.api.tax_rates.client import TaxRateClient
 from app.models import Budget, GrossIncome, OtherIncome
 
+logger = logging.getLogger(__name__)
 
 class PaymentSchedule(Enum):
     """
@@ -64,6 +67,7 @@ class BudgetCalculator:
             budget: Budget instance containing the financial data
         """
         self.budget = budget
+        self.validate_budget(budget)
         self.tax_client = TaxRateClient()
         self.schedule_multipliers = {
             PaymentSchedule.ANNUALLY: Decimal('1'),
@@ -166,6 +170,7 @@ class BudgetCalculator:
             'taxable_income': taxable_income
         }
 
+    @lru_cache(maxsize=128)
     def calculate_tax_withholdings(self) -> Dict[str, Decimal]:
         """Calculate current tax withholdings"""
         withholdings = {
@@ -201,6 +206,21 @@ class BudgetCalculator:
         withholdings['total_withholdings'] = sum(withholdings.values())
         return withholdings
 
+    @property
+    def primary_income(self):
+        return GrossIncome.query.filter_by(budget_id=self.id, category="W2 Job").first()
+
+    @property
+    def other_incomes(self):
+        return GrossIncome.query.filter_by(budget_id=self.id).filter(GrossIncome.category != "W2 Job").all()
+
+    @staticmethod
+    def validate_budget(budget):
+        if not budget.gross_income_sources:
+            raise ValueError("Budget must have at least one income source")
+        if not budget.profile:
+            raise ValueError("Budget must have an associated profile")
+
 
 def calculate_budget(budget_id: int) -> Dict:
     """
@@ -212,11 +232,14 @@ def calculate_budget(budget_id: int) -> Dict:
     Returns:
         Dictionary containing all budget calculations based on user input
     """
+    logger.info(f"Calculating final budget for budget_id: {self.budget.id}")
+
     try:
         budget = Budget.query.get_or_404(budget_id)
         calculator = BudgetCalculator(budget)
         return calculator.calculate_budget()
     except Exception as e:
+        logger.error(f"Error calculating budget: {str(e)}")
         raise ValueError(f"Error calculating budget: {str(e)}")
 
 

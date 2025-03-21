@@ -1,11 +1,14 @@
 """backend/app/budget/routes.py."""
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Blueprint, render_template, request, redirect, current_app, url_for, flash, session, jsonify
 from flask_login import login_required, current_user
 from app import db
 from app.models import Budget, BudgetItem, Profile, GrossIncome
 from app.forms import BudgetForm, IncomeForm
-from app.budget.budget_logic import calculate_budget, create_excel
+from app.budget.budget_logic import BudgetCalculator
+from contextlib import contextmanager
+
+
 
 budget_bp = Blueprint('budget', __name__, template_folder='budget')
 
@@ -522,46 +525,41 @@ def preview():
 @login_required
 def calculate(budget_id):
     """Calculate the final budget with tax estimations and display the results."""
-    # Get the budget
-    budget = Budget.query.get_or_404(budget_id)
-    
-    if budget.user_id != current_user.id:
-        flash("You do not have permission to view this budget.", "danger")
-        return redirect(url_for('main.dashboard'))
-    
-    # Get the user's profile
-    profile = Profile.query.filter_by(user_id=current_user.id).first()
-    
-    # Get all income sources
-    income_sources = GrossIncome.query.filter_by(budget_id=budget.id).all()
-    
-    # Get all budget items (expenses)
-    budget_items = BudgetItem.query.filter_by(budget_id=budget.id).all()
-    
     try:
-        # Calculate tax withdrawals based on state and income type
-        tax_data = calculate_tax_withdrawals(budget, income_sources, profile)
-        
-        # Calculate the final budget
-        budget_result = calculate_final_budget(budget, income_sources, budget_items, tax_data, profile)
-        
+        # Get the budget
+        budget = Budget.query.get_or_404(budget_id)
+
+        # Check authorization first
+        if budget.user_id != current_user.id:
+            flash("You do not have permission to view this budget.", "danger")
+            return redirect(url_for('main.dashboard'))
+
+        calculator = BudgetCalculator(budget)
+        # Check if there are any income sources before calculating
+        if not budget.gross_income_sources:
+            flash("Please add income sources before calculating.", "warning")
+            return redirect(url_for('budget.income', budget_id=budget_id))
+
+        tax_data = calculator.calculate_tax_withholdings()
+
+        budget_result = calculator.calculate_final_budget(budget, budget.gross_income_sources,
+                                                          budget.budget_items, tax_data, budget.profile)
+
         # Update budget status to 'finalized'
         budget.status = 'finalized'
         db.session.commit()
-        
-        # Render the budget results page
+
         return render_template(
             'budget/results.html',
             budget=budget,
-            income_sources=income_sources,
-            budget_items=budget_items,
+            income_sources=budget.gross_income_sources,
+            budget_items=budget.budget_items,
             tax_data=tax_data,
             budget_result=budget_result
         )
-    
     except Exception as e:
         db.session.rollback()
-        flash(f"An error occurred while calculating your budget: {str(e)}", "danger")
+        flash("An error occurred while calculating your budget. Please try again later.", "danger")
         return redirect(url_for('budget.preview'))
 
 
@@ -587,10 +585,12 @@ def download_budget(budget_id):
     
     try:
         # Calculate tax withdrawals
-        tax_data = calculate_tax_withdrawals(budget, income_sources, profile)
+        tax_data = calculate_tax_withholdings(budget, income_sources, profile)
+
         
         # Calculate the final budget
-        budget_result = calculate_final_budget(budget, income_sources, budget_items, tax_data, profile)
+        calculator = BudgetCalculator(budget)
+        budget_result = calculator.calculate_final_budget(budget, income_sources, budget_items, tax_data, profile)
         
         # Create Excel file
         from datetime import datetime
@@ -624,6 +624,23 @@ def download_budget(budget_id):
         return redirect(url_for('budget.calculate', budget_id=budget_id))
 
 
+@budget_bp.errorhandler(Exception)
+def handle_error(error):
+    db.session.rollback()  # Roll back any failed transactions
+    current_app.logger.error(f"Error: {str(error)}")
+    flash("An error occurred. Please try again.", "danger")
+    return redirect(url_for('main.dashboard'))
+
+
+# Add a context manager for database transactions
+@contextmanager
+def safe_transaction():
+    try:
+        yield
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        raise e
 
 
 # @budget_bp.route('/input', methods=['GET', 'POST'])
