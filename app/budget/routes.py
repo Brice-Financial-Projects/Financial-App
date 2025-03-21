@@ -526,28 +526,40 @@ def preview():
 def calculate(budget_id):
     """Calculate the final budget with tax estimations and display the results."""
     try:
+        current_app.logger.debug(f"Starting budget calculation for budget_id: {budget_id}")
+
         # Get the budget
         budget = Budget.query.get_or_404(budget_id)
+        current_app.logger.debug(f"Retrieved budget with {len(budget.gross_income_sources)} income sources")
 
         # Check authorization first
         if budget.user_id != current_user.id:
+            current_app.logger.warning(f"Unauthorized access attempt for budget {budget_id} by user {current_user.id}")
             flash("You do not have permission to view this budget.", "danger")
             return redirect(url_for('main.dashboard'))
 
         calculator = BudgetCalculator(budget)
+        current_app.logger.debug("Created BudgetCalculator instance")
+
         # Check if there are any income sources before calculating
         if not budget.gross_income_sources:
+            current_app.logger.warning(f"No income sources found for budget {budget_id}")
             flash("Please add income sources before calculating.", "warning")
             return redirect(url_for('budget.income', budget_id=budget_id))
 
+        current_app.logger.debug("Calculating tax withholdings")
         tax_data = calculator.calculate_tax_withholdings()
+        current_app.logger.debug(f"Tax withholdings calculated: {tax_data}")
 
+        current_app.logger.debug("Calculating final budget")
         budget_result = calculator.calculate_final_budget(budget, budget.gross_income_sources,
                                                           budget.budget_items, tax_data, budget.profile)
+        current_app.logger.debug(f"Budget calculation completed: {budget_result}")
 
         # Update budget status to 'finalized'
         budget.status = 'finalized'
         db.session.commit()
+        current_app.logger.debug("Budget status updated to finalized")
 
         return render_template(
             'budget/results.html',
@@ -558,6 +570,7 @@ def calculate(budget_id):
             budget_result=budget_result
         )
     except Exception as e:
+        current_app.logger.error(f"Budget calculation failed: {str(e)}", exc_info=True)
         db.session.rollback()
         flash("An error occurred while calculating your budget. Please try again later.", "danger")
         return redirect(url_for('budget.preview'))

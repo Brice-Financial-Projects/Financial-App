@@ -173,6 +173,8 @@ class BudgetCalculator:
     @lru_cache(maxsize=128)
     def calculate_tax_withholdings(self) -> Dict[str, Decimal]:
         """Calculate current tax withholdings"""
+        logger.debug("Starting tax withholdings calculation")
+
         withholdings = {
             'federal': Decimal('0'),
             'state': Decimal('0'),
@@ -180,31 +182,42 @@ class BudgetCalculator:
             'fica': Decimal('0')
         }
 
-        # Get withholdings from primary income
-        if self.budget.primary_income and self.budget.primary_income.tax_withholdings:
-            w = self.budget.primary_income.tax_withholdings
-            schedule = PaymentSchedule(self.budget.primary_income.payment_schedule)
-            multiplier = self.schedule_multipliers[schedule]
-
-            withholdings['federal'] += Decimal(str(w.federal)) * multiplier
-            withholdings['state'] += Decimal(str(w.state)) * multiplier
-            withholdings['local'] += Decimal(str(w.local)) * multiplier
-            withholdings['fica'] += Decimal(str(w.fica)) * multiplier
-
-        # Add withholdings from other income sources if applicable
-        for income in self.budget.other_incomes:
-            if income.tax_withholdings:
-                w = income.tax_withholdings
-                schedule = PaymentSchedule(income.payment_schedule)
+        try:
+            # Get withholdings from primary income
+            logger.debug(f"Checking primary income: {self.budget.primary_income}")
+            if self.budget.primary_income and self.budget.primary_income.tax_withholdings:
+                w = self.budget.primary_income.tax_withholdings
+                schedule = PaymentSchedule(self.budget.primary_income.payment_schedule)
                 multiplier = self.schedule_multipliers[schedule]
+                logger.debug(f"Primary income schedule: {schedule}, multiplier: {multiplier}")
 
                 withholdings['federal'] += Decimal(str(w.federal)) * multiplier
                 withholdings['state'] += Decimal(str(w.state)) * multiplier
                 withholdings['local'] += Decimal(str(w.local)) * multiplier
                 withholdings['fica'] += Decimal(str(w.fica)) * multiplier
+                logger.debug(f"Primary income withholdings calculated: {withholdings}")
 
-        withholdings['total_withholdings'] = sum(withholdings.values())
-        return withholdings
+            # Add withholdings from other income sources if applicable
+            logger.debug(f"Processing {len(self.budget.other_incomes)} other income sources")
+            for income in self.budget.other_incomes:
+                if income.tax_withholdings:
+                    w = income.tax_withholdings
+                    schedule = PaymentSchedule(income.payment_schedule)
+                    multiplier = self.schedule_multipliers[schedule]
+                    logger.debug(f"Other income {income.id} schedule: {schedule}, multiplier: {multiplier}")
+
+                    withholdings['federal'] += Decimal(str(w.federal)) * multiplier
+                    withholdings['state'] += Decimal(str(w.state)) * multiplier
+                    withholdings['local'] += Decimal(str(w.local)) * multiplier
+                    withholdings['fica'] += Decimal(str(w.fica)) * multiplier
+                    logger.debug(f"Updated withholdings after income {income.id}: {withholdings}")
+
+            withholdings['total_withholdings'] = sum(withholdings.values())
+            logger.debug(f"Final withholdings calculation: {withholdings}")
+            return withholdings
+        except (TypeError, ValueError) as e:
+            logger.error(f"Error in calculate_tax_withholdings: {str(e)}", exc_info=True)
+            raise ValueError(f"Error calculating tax withholdings: {str(e)}")
 
     @property
     def primary_income(self):

@@ -1,10 +1,21 @@
 """backend/app/config/settings.py"""
 
 import os
+import logging
 from dotenv import load_dotenv
 
 # Load environment variables from the .env file(s)
 load_dotenv()
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('budget_app.log')
+    ]
+)
+
 
 class Config:
     """Base configuration."""
