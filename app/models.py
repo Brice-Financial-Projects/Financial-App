@@ -183,9 +183,8 @@ class Budget(db.Model):
     @property
     def primary_income(self):
         """Get the primary income source for this budget"""
-        # Get the first gross income source, which represents the primary income
-        primary = self.gross_income_sources.first()
-        return primary if primary else None
+        # Get the first gross income source from the list
+        return self.gross_income_sources[0] if self.gross_income_sources else None
 
     def __repr__(self):
         return f"<Budget {self.name} (Status: {self.status})>"
