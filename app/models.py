@@ -180,6 +180,13 @@ class Budget(db.Model):
             "updated_at": self.updated_at.strftime('%Y-%m-%d %H:%M:%S')
         }
 
+    @property
+    def primary_income(self):
+        """Get the primary income source for this budget"""
+        # Get the first gross income source, which represents the primary income
+        primary = self.gross_income_sources.first()
+        return primary if primary else None
+
     def __repr__(self):
         return f"<Budget {self.name} (Status: {self.status})>"
 

@@ -174,6 +174,9 @@ class BudgetCalculator:
     def calculate_tax_withholdings(self) -> Dict[str, Decimal]:
         """Calculate current tax withholdings"""
         logger.debug("Starting tax withholdings calculation")
+        if not self.budget.primary_income:
+            logger.debug("No primary income found")
+            return 0
 
         withholdings = {
             'federal': Decimal('0'),
