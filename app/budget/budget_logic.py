@@ -32,10 +32,12 @@ Notes:
 # app/budget/budget_logic.py
 
 import logging
+from datetime import datetime
 from enum import Enum
 from typing import TypedDict, Dict
 from decimal import Decimal, InvalidOperation, DivisionByZero
 from dataclasses import dataclass
+from app.tax import federal_tax_data, state_tax_data
 from functools import lru_cache
 
 from app.api.tax_rates.client import TaxRateClient
@@ -170,13 +172,9 @@ class BudgetCalculator:
             'taxable_income': taxable_income
         }
 
-    @lru_cache(maxsize=128)
     def calculate_tax_withholdings(self) -> Dict[str, Decimal]:
         """Calculate current tax withholdings"""
         logger.debug("Starting tax withholdings calculation")
-        if not self.budget.primary_income:
-            logger.debug("No primary income found")
-            return 0
 
         withholdings = {
             'federal': Decimal('0'),
@@ -185,42 +183,75 @@ class BudgetCalculator:
             'fica': Decimal('0')
         }
 
+        if not self.budget.primary_income:
+            logger.debug("No primary income found")
+            withholdings['total_withholdings'] = Decimal('0')
+            return withholdings
+
         try:
-            # Get withholdings from primary income
-            logger.debug(f"Checking primary income: {self.budget.primary_income}")
-            if self.budget.primary_income and self.budget.primary_income.tax_withholdings:
-                w = self.budget.primary_income.tax_withholdings
-                schedule = PaymentSchedule(self.budget.primary_income.payment_schedule)
-                multiplier = self.schedule_multipliers[schedule]
-                logger.debug(f"Primary income schedule: {schedule}, multiplier: {multiplier}")
+            # Process primary income first
+            primary = self.budget.primary_income
+            logger.debug(f"Checking primary income: {primary}")
 
-                withholdings['federal'] += Decimal(str(w.federal)) * multiplier
-                withholdings['state'] += Decimal(str(w.state)) * multiplier
-                withholdings['local'] += Decimal(str(w.local)) * multiplier
-                withholdings['fica'] += Decimal(str(w.fica)) * multiplier
-                logger.debug(f"Primary income withholdings calculated: {withholdings}")
+            if primary.tax_type == 'W2':
+                # Convert to annual income first
+                annual_income = self._convert_to_annual(
+                    Decimal(str(primary.gross_income)),
+                    primary.frequency
+                )
 
-            # Add withholdings from other income sources if applicable
-            logger.debug(f"Processing {len(self.budget.other_incomes)} other income sources")
-            for income in self.budget.other_incomes:
-                if income.tax_withholdings:
-                    w = income.tax_withholdings
-                    schedule = PaymentSchedule(income.payment_schedule)
-                    multiplier = self.schedule_multipliers[schedule]
-                    logger.debug(f"Other income {income.id} schedule: {schedule}, multiplier: {multiplier}")
+                # Calculate federal tax using federal_tax_data
+                federal_tax = federal_tax_data.calculate_tax(
+                    income=float(annual_income),
+                    year=datetime.now().year,
+                    filing_status='single'  # You might want to get this from user settings
+                )
 
-                    withholdings['federal'] += Decimal(str(w.federal)) * multiplier
-                    withholdings['state'] += Decimal(str(w.state)) * multiplier
-                    withholdings['local'] += Decimal(str(w.local)) * multiplier
-                    withholdings['fica'] += Decimal(str(w.fica)) * multiplier
-                    logger.debug(f"Updated withholdings after income {income.id}: {withholdings}")
+                # Calculate state tax if not in FL
+                state_tax = 0
+                if primary.state_tax_ref != 'FL':
+                    state_tax = state_tax_data.calculate_tax(
+                        income=float(annual_income),
+                        state=primary.state_tax_ref,
+                        year=datetime.now().year,
+                        filing_status='single'  # You might want to get this from user settings
+                    )
 
+                # Calculate FICA (Social Security + Medicare)
+                fica_rate = Decimal('0.0765')  # 7.65% (6.2% Social Security + 1.45% Medicare)
+                fica_tax = float(annual_income * fica_rate)
+
+                withholdings['federal'] = Decimal(str(federal_tax))
+                withholdings['state'] = Decimal(str(state_tax))
+                withholdings['fica'] = Decimal(str(fica_tax))
+
+            # Calculate total
             withholdings['total_withholdings'] = sum(withholdings.values())
             logger.debug(f"Final withholdings calculation: {withholdings}")
             return withholdings
-        except (TypeError, ValueError) as e:
-            logger.error(f"Error in calculate_tax_withholdings: {str(e)}", exc_info=True)
+
+        except Exception as e:
+            logger.error(f"Error in calculate_tax_withholdings: {str(e)}")
             raise ValueError(f"Error calculating tax withholdings: {str(e)}")
+
+    def _convert_to_annual(self, amount: Decimal, frequency: str) -> Decimal:
+        """Convert an amount to annual based on frequency"""
+        frequency_multipliers = {
+            'annually': Decimal('1'),
+            'monthly': Decimal('12'),
+            'semi_monthly': Decimal('24'),
+            'bi_weekly': Decimal('26'),
+            'weekly': Decimal('52')
+        }
+        multiplier = frequency_multipliers.get(frequency)
+        if multiplier is None:
+            logger.warning(f"Unknown frequency '{frequency}', defaulting to annual")
+            multiplier = Decimal('1')
+
+        annual_amount = amount * multiplier
+        logger.debug(f"Converted amount: {annual_amount}")
+        return annual_amount
+
 
     @property
     def primary_income(self):
@@ -238,6 +269,8 @@ class BudgetCalculator:
             raise ValueError("Budget must have an associated profile")
 
 
+
+
 def calculate_budget(budget_id: int) -> Dict:
     """
     Standalone function that uses BudgetCalculator to calculate budget details.
@@ -248,7 +281,7 @@ def calculate_budget(budget_id: int) -> Dict:
     Returns:
         Dictionary containing all budget calculations based on user input
     """
-    logger.info(f"Calculating final budget for budget_id: {self.budget.id}")
+    logger.info(f"Calculating final budget for budget_id: {budget_id}")
 
     try:
         budget = Budget.query.get_or_404(budget_id)
