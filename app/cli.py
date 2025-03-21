@@ -2,35 +2,112 @@
 
 import click
 from flask.cli import with_appcontext
+from app import db
 from app.api.tax_rates.models import StateInfo, StateTaxBracket
-from app import create_app, db
 
 
+@click.group()
+def tax_cli():
+    """Tax rate management commands."""
+    pass
 
-@click.command('populate-state-data')
+
+@tax_cli.command()
 @with_appcontext
-def populate_state_data_command():
-    """Populate the database with state tax data."""
-    from scripts.populate_state_data import populate_state_info, populate_tax_brackets
+def init_states():
+    """Initialize the states table with all US states."""
+    states = [
+        ('AL', 'Alabama', True),
+        ('AK', 'Alaska', False),
+        ('AZ', 'Arizona', True),
+        # ... add all other states
+        ('WY', 'Wyoming', False)
+    ]
 
-    click.echo('Populating state information...')
-    populate_state_info()
-    click.echo('Populating tax brackets...')
-    populate_tax_brackets()
-    click.echo('Database population completed!')
+    for state_code, state_name, has_tax in states:
+        state = StateInfo(
+            state_code=state_code,
+            state_name=state_name,
+            has_state_tax=has_tax
+        )
+        db.session.add(state)
+
+    try:
+        db.session.commit()
+        click.echo('Successfully initialized states table.')
+    except Exception as e:
+        db.session.rollback()
+        click.echo(f'Error initializing states: {str(e)}', err=True)
 
 
-# Then in app/__init__.py, add:
+@tax_cli.command()
+@click.argument('state')
+@click.argument('year', type=int)
+@with_appcontext
+def add_tax_brackets(state, year):
+    """Add tax brackets for a specific state and year."""
+    # First verify the state exists
+    state = state.upper()
+    state_info = StateInfo.query.filter_by(state_code=state).first()
 
-def register_cli_commands(app):
-    from .cli import populate_state_data_command
-    app.cli.add_command(populate_state_data_command)
+    if not state_info:
+        click.echo(f'Error: State {state} not found', err=True)
+        return
+
+    if not state_info.has_state_tax:
+        click.echo(f'Note: {state} has no state income tax')
+        return
+
+    click.echo(f'Adding tax brackets for {state} {year}')
+
+    # Get brackets from user input
+    brackets = []
+    while True:
+        if not click.confirm('Add another bracket?'):
+            break
+
+        bracket_floor = click.prompt('Enter bracket floor', type=float)
+        rate = click.prompt('Enter tax rate (as decimal)', type=float)
+
+        bracket = StateTaxBracket(
+            state=state,
+            tax_year=year,
+            bracket_floor=bracket_floor,
+            rate=rate
+        )
+        brackets.append(bracket)
+
+    try:
+        db.session.bulk_save_objects(brackets)
+        db.session.commit()
+        click.echo(f'Successfully added {len(brackets)} tax brackets for {state} {year}')
+    except Exception as e:
+        db.session.rollback()
+        click.echo(f'Error adding tax brackets: {str(e)}', err=True)
 
 
-# In your create_app function, add:
-def create_app(config_name):
-    app = Flask(__name__)
-    # ... other initialization code ...
+@tax_cli.command()
+@click.argument('state')
+@click.argument('year', type=int)
+@with_appcontext
+def view_tax_brackets(state, year):
+    """View tax brackets for a specific state and year."""
+    state = state.upper()
+    brackets = StateTaxBracket.query \
+        .filter_by(state=state, tax_year=year) \
+        .order_by(StateTaxBracket.bracket_floor) \
+        .all()
 
-    register_cli_commands(app)
-    return app
+    if not brackets:
+        click.echo(f'No tax brackets found for {state} {year}')
+        return
+
+    click.echo(f'\nTax Brackets for {state} {year}:')
+    for bracket in brackets:
+        click.echo(f'Floor: ${bracket.bracket_floor:,.2f} - Rate: {bracket.rate * 100:.2f}%')
+
+
+def init_app(app):
+    """Register CLI commands with the app."""
+    app.cli.add_command(tax_cli)
+
