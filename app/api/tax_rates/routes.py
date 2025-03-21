@@ -20,6 +20,8 @@ from .data.federal_tax_data import (
 )
 
 federal_tax_bp = Blueprint('federal_tax', __name__)
+state_tax_bp = Blueprint('state_tax', __name__)
+
 
 
 @federal_tax_bp.route('/api/v1/federal/tax-brackets', methods=['GET'])
@@ -125,32 +127,113 @@ def available_tax_years():
     })
 
 
-@tax_rates_bp.route('/state/<string:state>/<int:year>', methods=['GET'])
-def get_state_tax_brackets(state, year):
-    """Get state tax brackets for a specific state and year."""
+
+@state_tax_bp.route('/brackets/<year>/<state>', methods=['GET'])
+def get_state_tax_brackets(year, state):
+    """
+    Get tax brackets for a specific state and year
+    """
     try:
-        # Convert state to uppercase for consistency
         state = state.upper()
-        
-        # Get the tax brackets for the specified state and year
-        brackets = state_tax_data.get_state_tax_brackets(state, year)
-        if not brackets:
+        year = int(year)
+
+        # First check if state exists and has state tax
+        state_info = StateInfo.query.filter_by(state_code=state).first()
+        if not state_info:
+            return jsonify({"error": "State not found"}), 404
+
+        if not state_info.has_state_tax:
             return jsonify({
-                'error': 'Tax brackets not found for specified state and year'
-            }), HTTPStatus.NOT_FOUND
+                "year": year,
+                "state": state,
+                "state_name": state_info.state_name,
+                "message": "This state has no state income tax",
+                "brackets": []
+            })
+
+        brackets = StateTaxBracket.query \
+            .filter_by(state=state, tax_year=year) \
+            .order_by(StateTaxBracket.bracket_floor) \
+            .all()
+
+        if not brackets:
+            return jsonify({"error": "Tax brackets not found for specified year"}), 404
 
         return jsonify({
-            'state': state,
-            'year': year,
-            'brackets': [bracket.to_dict() for bracket in brackets],
-            'has_state_tax': state_tax_data.has_state_income_tax(state)
-        }), HTTPStatus.OK
-
+            "year": year,
+            "state": state,
+            "state_name": state_info.state_name,
+            "brackets": [bracket.to_dict() for bracket in brackets]
+        })
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@state_tax_bp.route('/calculate', methods=['POST'])
+def calculate_state_tax():
+    """
+    Calculate state tax based on income, state, and year
+    """
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    income = data.get('income')
+    state = data.get('state', 'CA').upper()
+    year = int(data.get('year', 2023))
+
+    if not income:
+        return jsonify({"error": "Income is required"}), 400
+
+    try:
+        # Check if state exists and has state tax
+        state_info = StateInfo.query.filter_by(state_code=state).first()
+        if not state_info:
+            return jsonify({"error": "State not found"}), 404
+
+        if not state_info.has_state_tax:
+            return jsonify({
+                "income": income,
+                "state": state,
+                "state_name": state_info.state_name,
+                "year": year,
+                "tax": 0,
+                "message": "This state has no state income tax"
+            })
+
+        brackets = StateTaxBracket.query \
+            .filter_by(state=state, tax_year=year) \
+            .order_by(StateTaxBracket.bracket_floor) \
+            .all()
+
+        if not brackets:
+            return jsonify({"error": "Tax brackets not found for specified year"}), 404
+
+        tax = 0
+        prev_bracket_floor = 0
+
+        for i, bracket in enumerate(brackets):
+            if income > bracket.bracket_floor:
+                # Calculate tax for this bracket
+                if i + 1 < len(brackets):
+                    taxable_amount = min(income, brackets[i + 1].bracket_floor) - bracket.bracket_floor
+                else:
+                    taxable_amount = income - bracket.bracket_floor
+                tax += taxable_amount * bracket.rate
+            else:
+                break
+
         return jsonify({
-            'error': 'Internal server error',
-            'message': str(e)
-        }), HTTPStatus.INTERNAL_SERVER_ERROR
+            "income": income,
+            "state": state,
+            "state_name": state_info.state_name,
+            "year": year,
+            "tax": round(tax, 2)
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @tax_rates_bp.route('/fica/<int:year>', methods=['GET'])
 def get_fica_rates(year):

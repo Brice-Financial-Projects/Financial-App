@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
 from datetime import datetime
+from app import db
 
 
 @dataclass
@@ -11,7 +12,7 @@ class TaxBracket:
     rate: float
     min_income: float
     max_income: Optional[float] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert tax bracket to dictionary."""
         return {
@@ -27,7 +28,7 @@ class FederalTaxData:
     year: int
     brackets: List[TaxBracket]
     standard_deduction: Dict[str, float] = field(default_factory=dict)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert federal tax data to dictionary."""
         return {
@@ -45,7 +46,7 @@ class StateTaxData:
     brackets: List[TaxBracket]
     has_state_tax: bool = True
     standard_deduction: Optional[Dict[str, float]] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert state tax data to dictionary."""
         return {
@@ -66,7 +67,7 @@ class FICATaxData:
     additional_medicare_rate: float
     social_security_wage_base: float
     additional_medicare_threshold: float
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert FICA tax data to dictionary."""
         return {
@@ -95,10 +96,10 @@ class TaxCalculationRequest:
     pretax_deductions: float = 0.0
 
     VALID_FILING_STATUSES = {
-        'single', 'married_joint', 'married_separate', 
+        'single', 'married_joint', 'married_separate',
         'head_household', 'qualifying_widow'
     }
-    
+
     VALID_PAY_FREQUENCIES = {
         'weekly', 'biweekly', 'semimonthly', 'monthly', 'annual'
     }
@@ -108,25 +109,25 @@ class TaxCalculationRequest:
         try:
             if not isinstance(self.income, (int, float)) or self.income < 0:
                 return False
-            
+
             if not isinstance(self.year, int) or self.year < 1900:
                 return False
-            
+
             if self.state and len(self.state) != 2:
                 return False
-            
+
             if self.filing_status not in self.VALID_FILING_STATUSES:
                 return False
-            
+
             if self.pay_frequency not in self.VALID_PAY_FREQUENCIES:
                 return False
-            
+
             if not isinstance(self.additional_withholding, (int, float)) or self.additional_withholding < 0:
                 return False
-            
+
             if not isinstance(self.pretax_deductions, (int, float)) or self.pretax_deductions < 0:
                 return False
-            
+
             if self.pretax_deductions > self.income:
                 return False
 
@@ -137,28 +138,28 @@ class TaxCalculationRequest:
     def validation_errors(self) -> List[str]:
         """Get list of validation errors."""
         errors = []
-        
+
         if not isinstance(self.income, (int, float)) or self.income < 0:
             errors.append("Income must be a positive number")
-        
+
         if not isinstance(self.year, int) or self.year < 1900:
             errors.append("Invalid year")
-        
+
         if self.state and len(self.state) != 2:
             errors.append("State must be a two-letter code")
-        
+
         if self.filing_status not in self.VALID_FILING_STATUSES:
             errors.append(f"Filing status must be one of: {', '.join(self.VALID_FILING_STATUSES)}")
-        
+
         if self.pay_frequency not in self.VALID_PAY_FREQUENCIES:
             errors.append(f"Pay frequency must be one of: {', '.join(self.VALID_PAY_FREQUENCIES)}")
-        
+
         if not isinstance(self.additional_withholding, (int, float)) or self.additional_withholding < 0:
             errors.append("Additional withholding must be a non-negative number")
-        
+
         if not isinstance(self.pretax_deductions, (int, float)) or self.pretax_deductions < 0:
             errors.append("Pre-tax deductions must be a non-negative number")
-        
+
         if self.pretax_deductions > self.income:
             errors.append("Pre-tax deductions cannot exceed income")
 
@@ -188,7 +189,7 @@ class TaxCalculationResponse:
     effective_tax_rate: float
     tax_brackets_used: Optional[List[Dict[str, Any]]] = None
     deductions_applied: Optional[Dict[str, float]] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert response to dictionary."""
         response = {
@@ -204,10 +205,59 @@ class TaxCalculationResponse:
 
         if self.tax_brackets_used:
             response['tax_brackets_used'] = self.tax_brackets_used
-            
+
         if self.deductions_applied:
             response['deductions_applied'] = {
                 k: round(v, 2) for k, v in self.deductions_applied.items()
             }
 
-        return response 
+        return response
+
+
+@dataclass
+class StateInfo(db.Model):
+    __tablename__ = 'state_info'
+
+    # Fields to expose in JSON serialization
+    id: int
+    state_code: str
+    state_name: str
+    has_state_tax: bool
+
+    # Column definitions
+    id = db.Column(db.Integer, primary_key=True)
+    state_code = db.Column(db.String(2), unique=True, nullable=False)
+    state_name = db.Column(db.String(100), nullable=False)
+    has_state_tax = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<StateInfo {self.state_code}>"
+
+
+@dataclass
+class StateTaxBracket(db.Model):
+    __tablename__ = 'state_tax_brackets'
+
+    # Fields to expose in JSON serialization
+    id: int
+    state: str
+    tax_year: int
+    bracket_floor: float
+    rate: float
+
+    # Column definitions
+    id = db.Column(db.Integer, primary_key=True)
+    state = db.Column(db.String(2), db.ForeignKey('state_info.state_code'), nullable=False)
+    tax_year = db.Column(db.Integer, nullable=False)
+    bracket_floor = db.Column(db.Float, nullable=False)
+    rate = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationship
+    state_info = db.relationship('StateInfo', backref=db.backref('tax_brackets', lazy=True))
+
+    def __repr__(self):
+        return f"<StateTaxBracket {self.state} {self.tax_year} - {self.rate}>"
