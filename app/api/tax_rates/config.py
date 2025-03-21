@@ -7,15 +7,16 @@ from dataclasses import dataclass
 @dataclass
 class TaxAPIConfig:
     """Configuration for tax API endpoints."""
+    base_url: str
     # API credentials
     api_key: str
-    api_secret: str = None
-    
+
     # Base URLs
-    base_url: str
     federal_endpoint: str
     state_endpoint: str
     fica_endpoint: str
+
+    api_secret: str = None
     
     # Timeout settings
     timeout_seconds: int = 30

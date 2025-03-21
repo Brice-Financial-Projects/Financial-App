@@ -51,4 +51,8 @@ def calculate_fica_tax(income: float, year: int) -> Dict[str, float]:
         'social_security': round(social_security_tax, 2),
         'medicare': round(medicare_tax, 2),
         'total': round(social_security_tax + medicare_tax, 2)
-    } 
+    }
+
+
+def get_fica_tax_brackets():
+    return None

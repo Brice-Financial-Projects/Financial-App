@@ -1,5 +1,7 @@
 """Mock client for the tax rate API that uses sample data."""
 
+# app/api/tax_rates/mock_client.py
+
 import logging
 from typing import Dict, Any, List
 
@@ -11,9 +13,10 @@ from .models import (
     TaxCalculationRequest, 
     TaxCalculationResponse
 )
-from .data.federal_tax_data import get_federal_tax_data
-from .data.state_tax_data import get_state_tax_data
-from .data.fica_tax_data import get_fica_data
+from .data.federal_tax_data import get_federal_tax_brackets
+from .data.state_tax_data import get_state_tax_brackets
+
+from .data.fica_tax_data import get_fica_tax_brackets
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +40,7 @@ class MockTaxRateClient:
             FederalTaxData object
         """
         logger.debug(f"Getting mock federal tax data for {year}, {filing_status}")
-        data = get_federal_tax_data(year, filing_status)
+        data = self.get_federal_tax_data(year, filing_status)
         
         # Convert bracket dictionaries to TaxBracket objects
         brackets = []
@@ -67,7 +70,7 @@ class MockTaxRateClient:
             StateTaxData object
         """
         logger.debug(f"Getting mock state tax data for {state}, {year}, {filing_status}")
-        data = get_state_tax_data(state, year, filing_status)
+        data = self.get_state_tax_data(state, year, filing_status)
         
         # Convert bracket dictionaries to TaxBracket objects
         brackets = []
@@ -97,7 +100,7 @@ class MockTaxRateClient:
             FICATaxData object
         """
         logger.debug(f"Getting mock FICA tax data for {year}")
-        data = get_fica_data(year)
+        data = self.get_fica_data(year)
         
         return FICATaxData(
             year=data["year"],

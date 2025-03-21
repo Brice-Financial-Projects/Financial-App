@@ -1,7 +1,7 @@
 # scripts/populate_state_data.py
 
 from app import create_app, db
-from app.models import StateInfo, StateTaxBracket
+from app.api.tax_rates.models import StateInfo, StateTaxBracket
 from datetime import datetime
 
 
@@ -316,7 +316,7 @@ def populate_tax_brackets():
 
 
 def main():
-    app = create_app('development')
+    app = create_app()
     with app.app_context():
         print("Starting database population...")
         print("Populating state information...")
