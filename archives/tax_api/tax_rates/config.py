@@ -30,7 +30,7 @@ class TaxAPIConfig:
 def load_config() -> TaxAPIConfig:
     """Load tax API configuration from environment variables."""
     return TaxAPIConfig(
-        api_key=os.environ.get('TAX_API_KEY', ''),
+        # api_key=os.environ.get('TAX_API_KEY', ''),
         api_secret=os.environ.get('TAX_API_SECRET', ''),
         base_url=os.environ.get('TAX_API_BASE_URL', 'https://api.taxrates.io/v1'),
         federal_endpoint=os.environ.get('TAX_API_FEDERAL_ENDPOINT', '/federal/rates'),

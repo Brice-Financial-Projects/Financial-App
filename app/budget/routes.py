@@ -552,8 +552,7 @@ def calculate(budget_id):
         current_app.logger.debug(f"Tax withholdings calculated: {tax_data}")
 
         current_app.logger.debug("Calculating final budget")
-        budget_result = calculator.calculate_final_budget(budget, budget.gross_income_sources,
-                                                          budget.budget_items, tax_data, budget.profile)
+        budget_result = calculator.calculate_budget()
         current_app.logger.debug(f"Budget calculation completed: {budget_result}")
 
         # Update budget status to 'finalized'
