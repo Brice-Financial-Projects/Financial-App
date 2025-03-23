@@ -167,7 +167,10 @@
         <div class="col-md-12 text-center mb-4">
             <a href="{{ url_for('budget.preview') }}" class="btn btn-secondary btn-lg">Back to Preview</a>
             <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary btn-lg">Back to Dashboard</a>
-            <a href="{{ url_for('budget.download_budget', budget_id=budget.id) }}" class="btn btn-success btn-lg">Download Budget as Excel</a>
+            <button class="btn btn-success btn-lg" disabled title="This feature is coming soon!" style="opacity: 0.6; cursor: not-allowed;">
+                Download Budget as Excel
+                <small class="d-block">(Coming Soon)</small>
+            </button>
         </div>
     </div>
 </div>
