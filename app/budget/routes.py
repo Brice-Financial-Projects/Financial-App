@@ -555,6 +555,44 @@ def calculate(budget_id):
         budget_result = calculator.calculate_budget()
         current_app.logger.debug(f"Budget calculation completed: {budget_result}")
 
+        # Transform budget_result to match template expectations
+        template_budget_result = {
+            'monthly_gross_income': budget_result['gross_income']['monthly'],
+            'monthly_net_income': budget_result['net_income']['monthly'],
+            'total_expenses': sum(float(item.minimum_payment) for item in budget.budget_items),
+            'remaining_money': float(budget_result['net_income']['monthly']) - sum(float(item.minimum_payment) for item in budget.budget_items),
+            'expenses_by_category': {}
+        }
+
+        # Calculate expenses by category
+        for item in budget.budget_items:
+            if item.category not in template_budget_result['expenses_by_category']:
+                template_budget_result['expenses_by_category'][item.category] = 0
+            template_budget_result['expenses_by_category'][item.category] += float(item.minimum_payment)
+
+        # Transform tax_data to match template expectations
+        template_tax_data = {
+            'state': budget.profile.state,
+            'total_monthly_gross': float(budget_result['gross_income']['monthly']),
+            'total_monthly_federal_tax': float(tax_data['federal']) / 12,
+            'total_monthly_state_tax': float(tax_data['state']) / 12,
+            'total_monthly_fica_tax': float(tax_data['fica']) / 12,
+            'total_monthly_net': float(budget_result['net_income']['monthly']),
+            'income_details': []
+        }
+
+        # Add income source details
+        for source in budget.gross_income_sources:
+            source_tax = {
+                'source': source.source,
+                'gross_income': float(source.gross_income),
+                'federal_tax': float(tax_data['federal']) * (float(source.gross_income) / float(budget_result['gross_income']['annual'])),
+                'state_tax': float(tax_data['state']) * (float(source.gross_income) / float(budget_result['gross_income']['annual'])),
+                'fica_tax': float(tax_data['fica']) * (float(source.gross_income) / float(budget_result['gross_income']['annual'])),
+            }
+            source_tax['net_income'] = source_tax['gross_income'] - source_tax['federal_tax'] - source_tax['state_tax'] - source_tax['fica_tax']
+            template_tax_data['income_details'].append(source_tax)
+
         # Update budget status to 'finalized'
         budget.status = 'finalized'
         db.session.commit()
@@ -565,8 +603,8 @@ def calculate(budget_id):
             budget=budget,
             income_sources=budget.gross_income_sources,
             budget_items=budget.budget_items,
-            tax_data=tax_data,
-            budget_result=budget_result
+            tax_data=template_tax_data,
+            budget_result=template_budget_result
         )
     except Exception as e:
         current_app.logger.error(f"Budget calculation failed: {str(e)}", exc_info=True)
