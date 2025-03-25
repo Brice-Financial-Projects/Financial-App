@@ -15,6 +15,11 @@ budget_bp = Blueprint('budget', __name__, template_folder='budget')
 @budget_bp.route('/create', methods=['GET', 'POST'])
 @login_required
 def create_budget():
+    # Check if user has a profile first
+    if not current_user.profile:
+        flash("Please complete your profile before creating a budget.", "warning")
+        return redirect(url_for('profile.profile'))
+
     form = BudgetForm()
 
     # Ensure the budget name exists in session (redirect if not)
@@ -437,6 +442,11 @@ def delete_budget(budget_id):
 @budget_bp.route('/name', methods=['GET', 'POST'])
 @login_required
 def budget_name():
+    # Check if user has a profile first
+    if not current_user.profile:
+        flash("Please complete your profile before creating a budget.", "warning")
+        return redirect(url_for('profile.profile'))
+
     form = BudgetForm()
 
     # Clear session data related to previous budgets (except for income)
