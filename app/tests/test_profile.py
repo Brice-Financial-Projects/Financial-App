@@ -11,12 +11,16 @@ def test_profile_page(auth_client, test_profile):
 
 def test_create_profile(auth_client):
     """Test profile creation."""
-    response = auth_client.post('/profile/create', data={
+    response = auth_client.post('/profile', data={
         'first_name': 'John',
         'last_name': 'Doe',
         'state': 'NY',
-        'retirement_contribution': 5000,
+        'filing_status': 'single',
+        'num_dependents': 0,
+        'income_type': 'Salary',
+        'pay_cycle': 'monthly',
         'retirement_contribution_type': 'pretax',
+        'retirement_contribution': 5000,
         'health_insurance_premium': 2000,
         'hsa_contribution': 1000,
         'fsa_contribution': 500,
@@ -30,12 +34,16 @@ def test_create_profile(auth_client):
 
 def test_update_profile(auth_client, test_profile):
     """Test profile update."""
-    response = auth_client.post('/profile/update', data={
+    response = auth_client.post('/profile', data={
         'first_name': 'Jane',
         'last_name': 'Smith',
         'state': 'CA',
-        'retirement_contribution': 6000,
+        'filing_status': 'single',
+        'num_dependents': 0,
+        'income_type': 'Salary',
+        'pay_cycle': 'monthly',
         'retirement_contribution_type': 'pretax',
+        'retirement_contribution': 6000,
         'health_insurance_premium': 2500,
         'hsa_contribution': 1200,
         'fsa_contribution': 600,
@@ -51,31 +59,39 @@ def test_update_profile(auth_client, test_profile):
 
 def test_profile_form_validation(auth_client):
     """Test profile form validation."""
-    response = auth_client.post('/profile/create', data={
+    response = auth_client.post('/profile', data={
         'first_name': '',  # Empty first name should fail validation
         'last_name': '',   # Empty last name should fail validation
         'state': 'XXX',   # Invalid state code
-        'retirement_contribution': -1000,  # Negative value should fail validation
-        'health_insurance_premium': -500   # Negative value should fail validation
+        'filing_status': 'invalid',  # Invalid filing status
+        'income_type': 'invalid',    # Invalid income type
+        'pay_cycle': 'invalid',      # Invalid pay cycle
+        'retirement_contribution_type': 'invalid'  # Invalid contribution type
     }, follow_redirects=True)
     
     assert response.status_code == 200
     assert b'First Name' in response.data
     assert b'Last Name' in response.data
     assert b'State Code' in response.data
-    assert b'Retirement Contribution' in response.data
-    assert b'Health Insurance Premium' in response.data
+    assert b'Filing Status' in response.data
+    assert b'Income Type' in response.data
+    assert b'Pay Cycle' in response.data
+    assert b'Retirement Contribution Type' in response.data
 
 def test_profile_required_fields(auth_client):
     """Test that required profile fields are enforced."""
-    response = auth_client.post('/profile/create', data={
+    response = auth_client.post('/profile', data={
         'first_name': 'John',
         'last_name': 'Doe'
-        # Missing required state field
+        # Missing required fields
     }, follow_redirects=True)
     
     assert response.status_code == 200
     assert b'State is required' in response.data
+    assert b'Filing Status is required' in response.data
+    assert b'Income Type is required' in response.data
+    assert b'Pay Cycle is required' in response.data
+    assert b'Retirement Contribution Type is required' in response.data
 
 def test_profile_retirement_contribution_types(auth_client):
     """Test retirement contribution type validation."""

@@ -26,11 +26,10 @@ def create_app():
     # Load environment variables
     load_dotenv()
 
-    app = Flask(__name__)
-
-    # Configure app
     env = os.getenv("FLASK_ENV", "development")  # Default to development instead of production
     print(f"🔧 Flask Environment: {env}")
+    
+    app = Flask(__name__)
     
     if env == "development":
         from .config.settings import DevelopmentConfig
@@ -92,7 +91,6 @@ def create_app():
         app.register_blueprint(auth_bp, url_prefix="/auth")
         app.register_blueprint(profile_bp)
         app.register_blueprint(weather_bp, url_prefix="/weather")
-
 
 
     # Error handlers
