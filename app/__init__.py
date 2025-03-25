@@ -85,12 +85,13 @@ def create_app():
         from app.main.routes import main_bp
         from app.auth.routes import auth_bp
         from app.profile.routes import profile_bp
-
+        from app.weather.routes import weather_bp
 
         app.register_blueprint(budget_bp, url_prefix="/budget")
         app.register_blueprint(main_bp, url_prefix="/")
         app.register_blueprint(auth_bp, url_prefix="/auth")
         app.register_blueprint(profile_bp)
+        app.register_blueprint(weather_bp, url_prefix="/weather")
 
 
 
