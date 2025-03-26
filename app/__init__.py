@@ -26,7 +26,7 @@ def create_app():
     # Load environment variables
     load_dotenv()
 
-    env = os.getenv("FLASK_ENV", "development")  # Default to development instead of production
+    env = os.getenv("FLASK_ENV")  
     print(f"🔧 Flask Environment: {env}")
     
     app = Flask(__name__)
