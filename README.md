@@ -1,19 +1,155 @@
-# Capstone Project Two
+# Finance Budget Application
 
-We have broken down the Capstone Project into easy-to-follow steps. Each step of the capstone contains a link with instructions for that step. You may notice this secondCapstone follows a similar pattern to your first Capstone, however, there are key differences. 
+A comprehensive budgeting application that helps users manage their finances, track income sources, and plan expenses while considering tax implications.
 
-## Overview
-For your second Capstone Project, you’ll build a more complex database-driven website. Most students will choose to develop this app in React and Node, however, Flask/Python is also an option if you tackle a difficult idea. This website will be powered either off of an external API or an API that you build yourself. Your finished capstone will be an integral part of your portfolio; it will demonstrate to potential employers everything you’ve learned from this course.We want you to work on a challenging project that will incorporate all of the full-stack skills you’ve been developing. The goal of this project isn’t to create something that’s never been done before but should be more ambitious than your last capstone. You could potentially create a website similar to one that already exists, but this time, perhaps add a feature that you wish the website had.We do encourage you to be creative when building your site. You’re free to choose any API you’d like to use or build your own. We encourage you to tap into your imagination throughout the project.
+## Features
 
-## Examples
-You already know about the wealth of APIs available online. Perhaps on this capstone, you can work on one of your ideas that was a bit too complicated for the last project.We also encourage you to create your own API if you cannot find one with the data you are looking for. You can do this through web scraping, importing a CSV, or loading your own data into the API.
+- **User Management**
+  - Secure user registration and authentication
+  - Profile management with personal and financial information
+  - Role-based access control
 
-Let’s give you an example of what a site could look like. Say you want to make a website or mobile app that was like Facebook for dogs - something that would allow pet owners to connect with other pets in their neighborhood. First, you could load information into the application about various breeds of dogs, which would populate drop down lists and allow users to sort for the kind of dog they would like to sit. This will help users build the profile for their animal. You could add forms with various information about the pets.You could allow them to upload pictures (dog owners love nothing more than to take pictures of their animals). Most importantly, you could allow the pets to connect with other pets through a graph.Now let’s talk about bells and whistles. What if a user of your Dogbook was leaving town and wanted to find users in their neighborhood to watch their dog for the weekend. You could implement a geographical filtering and simple messaging or request system in order to help Spot find the best pet sitter. And since no one wants their dog watched by some kind of monster, you could implement reviews to see if people recommend this sitter. There are a million different features you could add!Verified users, so celebrities could show off their dogs. Hafthor Bjornsson, the actor who plays the Mountain on Game ofThrones, has an adorable pomeranian and people demand picture proof! You could implement an adoption system so people can give shelter pets a good home. Of course, adding in all of these features would be beyond the scope of this project, but you should expect this app to have more functionality than the last Capstone
+- **Profile Management**
+  - Personal information tracking
+  - Tax-related details (filing status, dependents)
+  - Employment information
+  - Pre-tax benefits and deductions
 
-## Guidelines
+- **Budget Management**
+  - Create and manage multiple budgets
+  - Track different income sources
+  - Categorize and manage expenses
+  - Calculate tax implications
+  - View budget summaries and reports
 
-1. You can use any technology we’ve taught you in the course, and there’s nothing stopping you from using outside libraries are services.That being said, we recommend you use React, and Node.js for this Capstone.If you completed the optional Redux unit, we recommend you use Redux as well. You can useFlask/Python but will be expected to make a much more fully featured application than last time.
-2. Every step of the project has submissions. This will alert your mentor to evaluate your work. Pay attention to the instructions so you submit the right thing. You will submit the link to your GitHub repo several times, this is for your mentor’s convenience. Your URL on GitHub is static and will not change.
-3. The first two steps require mentor approval to proceed, but after that, you are free to continue working on the project after you submit your work. For instance, you don’t need your mentor to approve your database schema before you start working on your site. Likewise, you don’t need your mentor to approve the first iteration of your site before you start polishing it.
-4. If you get stuck, there is a wealth of resources at your disposal. The course contains all of the material you will need to complete this project, but a well-phrased Google search might yield you an immediate solution to your problem. Don’t forget that your Slack community, TAs, and your mentor there to help you out.
-5.Make sure you use a free API or create your own API and deploy your project on Heroku, so everyone can see your work!
+- **Weather Integration**
+  - Check weather conditions by location
+  - Plan outdoor activities accordingly
+
+## Technology Stack
+
+- **Backend**
+  - Python 3.10+
+  - Flask (Web Framework)
+  - SQLAlchemy (ORM)
+  - PostgreSQL (Database)
+  - Redis (Session Management)
+  - Flask-Login (Authentication)
+  - Flask-WTF (Forms and CSRF Protection)
+
+- **Frontend**
+  - HTML5
+  - CSS3
+  - Bootstrap 5
+  - JavaScript
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd finance-budget-app
+```
+
+2. Create and activate a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# or
+venv\Scripts\activate  # Windows
+```
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+4. Set up environment variables in `.env`:
+```env
+FLASK_ENV=development
+FLASK_DEBUG=1
+SECRET_KEY=your_secret_key
+DATABASE_URL=postgresql+psycopg2://username:password@localhost:5432/budget_db
+REDIS_URL=redis://localhost:6379/0
+OPENWEATHER_API_KEY=your_api_key
+```
+
+5. Initialize the database:
+```bash
+flask db upgrade
+```
+
+6. Run the application:
+```bash
+flask run
+```
+
+## Project Structure
+
+```
+finance-budget-app/
+├── app/
+│   ├── auth/          # Authentication routes and forms
+│   ├── budget/        # Budget management functionality
+│   ├── config/        # Configuration settings
+│   ├── docs/          # Documentation files
+│   ├── models/        # Database models
+│   ├── profile/       # Profile management
+│   ├── static/        # Static files (CSS, JS)
+│   ├── templates/     # HTML templates
+│   └── weather/       # Weather integration
+├── docs/             # Project documentation
+├── migrations/       # Database migrations
+├── tests/           # Test files
+├── .env             # Environment variables
+├── .gitignore       # Git ignore file
+├── requirements.txt  # Python dependencies
+└── run.py           # Application entry point
+```
+
+## Database Schema
+
+The application uses a relational database with the following main models:
+- Users
+- Profiles
+- Budgets
+- Budget Items
+- Gross Income
+- Other Income
+
+For detailed schema information, see [Database Schema Documentation](docs/database_schema.md).
+
+## Testing
+
+Run the test suite:
+```bash
+pytest
+```
+
+## API Documentation
+
+### Weather API
+- Endpoint: `/weather/weather`
+- Method: POST
+- Parameters:
+  - city: City name
+  - state: State code (US)
+  - country: Country code
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- OpenWeather API for weather data
+- Bootstrap for UI components
+- Flask community for excellent documentation
