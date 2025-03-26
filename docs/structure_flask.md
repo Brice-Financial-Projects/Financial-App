@@ -1,86 +1,193 @@
-# Project Structure with Just Backend Flask
+# Flask Application Structure
 
-flask_budget_app/
-├── app/
-│   ├── __init__.py        # Initialize the Flask app and extensions
-│   ├── models.py          # Database models for budgets, users, profiles, and income
-│   ├── main/              # Main blueprint for core functionality
-│   │   ├── __init__.py    # Initialize main blueprint
-│   │   ├── routes.py      # Main app routes (homepage, dashboard, etc.)
-│   ├── auth/              # Authentication blueprint
-│   │   ├── __init__.py    # Blueprint for authentication
-│   │   ├── routes.py      # Login, logout, registration routes
-│   │   ├── forms.py       # Auth forms (Login, Register)
-│   ├── profile/           # User profile blueprint
-│   │   ├── __init__.py    # Blueprint for profile routes
-│   │   ├── routes.py      # Profile routes with tax info handling
-│   │   ├── forms.py       # Profile forms with tax-related fields
-│   ├── budget/            # Budget blueprint
-│   │   ├── __init__.py    # Blueprint for budget routes
-│   │   ├── routes.py      # Budget routes (create, input, income, preview, calculate)
-│   │   ├── budget_logic.py # Budget calculations and logic
-│   │   ├── tax_api.py     # Interface between budget and tax rate API
-│   ├── api/               # API integrations and services
-│   │   ├── __init__.py    # API package initialization
-│   │   ├── tax_rates/     # Tax rate calculation APIs
-│   │   │   ├── __init__.py # Tax rates package initialization
-│   │   │   ├── client.py  # Tax API client implementation
-│   │   │   ├── models.py  # Tax bracket and calculation models
-│   │   │   ├── config.py  # API configuration settings
-│   │   │   ├── cache.py   # Cache implementation for tax data
-│   │   │   ├── data/      # Sample tax data for testing
-│   │   │   │   ├── federal_tax_data.py # Federal tax brackets
-│   │   │   │   ├── state_tax_data.py   # State tax rates
-│   │   │   │   ├── fica_tax_data.py    # FICA tax rates
-│   │   ├── services.py    # Common API service functions
-│   │   ├── errors.py      # API error handling utilities
-│   ├── templates/         # HTML templates
-│   │   ├── base.html      # Shared layout
-│   │   ├── home.html      # Homepage
-│   │   ├── auth/          # Auth templates
-│   │   │   ├── login.html # Login page
-│   │   │   ├── register.html # Register page
-│   │   │   ├── reset_password.html # Password reset page
-│   │   ├── main/          # Main templates
-│   │   │   ├── dashboard.html # User dashboard
-│   │   │   ├── index.html # Landing page
-│   │   ├── profile/       # Profile templates
-│   │   │   ├── profile.html # Enhanced profile form with tax fields
-│   │   ├── budget/        # Budget templates
-│   │   │   ├── name.html  # Budget name input
-│   │   │   ├── budget_create.html # Budget category creation form
-│   │   │   ├── budget_input.html  # Input form for budget details
-│   │   │   ├── income.html # Income input form with tax type
-│   │   │   ├── preview.html # Preview all budget data before calculation
-│   │   │   ├── results.html # Final budget calculation results with tax details
-│   │   │   ├── view_budget.html # View existing budget
-│   ├── static/            # CSS and JavaScript
-│   │   ├── css/           # Stylesheets
-│   │   ├── js/           # JavaScript files
-│   │   │   ├── budget_create.js # JS for budget creation
-│   │   │   ├── income.js  # JS for income form handling
-│   ├── config/            # Configuration settings
-│   │   ├── __init__.py
-│   │   ├── settings.py    # Flask settings (Development, Production, Testing)
-├── migrations/            # Database migration files
-│   ├── versions/         # Migration version files
-│   │   ├── [migration_id]_add_tax_related_fields_to_profile_model.py
-├── tests/                 # Unit and integration tests
-│   ├── __init__.py
-│   ├── test_routes.py     # API route tests
-│   ├── test_models.py     # Model tests
-│   ├── test_auth.py       # Auth tests
-│   ├── test_budget.py     # Budget-specific tests
-│   ├── test_tax_api.py    # Tests for tax rate API integration
-│   ├── conftest.py        # Pytest configuration file (fixtures)
-│   ├── mocks/             # Mock data for testing
-│   │   ├── tax_api_responses.json # Mock responses for tax API
+## Project Root Directory Structure
+```
+finance-budget-app/
+├── app/                    # Main application package
+├── archives/              # Archived code and files (old implementations, backups)
+├── data/                  # Data files and resources (tax rates, state info)
 ├── docs/                  # Project documentation
-│   ├── structure_flask.md # Documentation for project structure
-│   ├── api_documentation.md # Documentation for API usage
-│   ├── tax_calculation.md # Documentation for tax calculation logic
-├── .env                   # Environment variables (ignored in version control)
-├── requirements.txt       # Python dependencies
-├── run.py                 # Entry point to run the app
-├── .gitignore             # Ignore unnecessary files
-└── README.md              # Project documentation
+│   ├── database_schema.md # Database models and relationships
+│   ├── structure_flask.md # Project structure documentation
+│   └── finance_budget_app_db_schema.png # Visual database schema
+├── flask_session/        # Flask session storage files
+├── migrations/           # Database migration files
+│   ├── versions/        # Individual migration scripts
+│   ├── env.py          # Migration environment settings
+│   └── alembic.ini     # Alembic configuration
+├── scripts/              # Utility and maintenance scripts
+├── tests/                # Test files and configurations
+├── venv/                 # Python virtual environment
+├── .env                  # Environment variables and secrets
+├── .gitignore           # Git ignore patterns
+├── budget_app.log       # Application logging file
+├── pytest.ini           # Pytest configuration and settings
+├── README.md            # Project overview and setup instructions
+├── requirements.txt     # Python package dependencies
+├── run.py               # Application entry point
+└── test_db.py          # Test database configuration
+```
+
+## Application Package Structure (app/)
+```
+app/
+├── __init__.py          # Application factory, extensions, and blueprints
+├── models.py            # SQLAlchemy models (User, Profile, Budget, etc.)
+├── forms.py            # Common form definitions
+├── utils.py            # Shared utility functions
+├── api/                # API endpoints and integrations
+│   ├── __init__.py    # API blueprint initialization
+│   ├── routes.py      # API route definitions
+│   └── services.py    # External service integrations
+├── auth/               # Authentication blueprint
+│   ├── __init__.py    # Blueprint initialization
+│   ├── forms.py       # Login, registration, and password forms
+│   ├── routes.py      # Auth routes (login, register, logout)
+│   └── utils.py       # Auth-specific utilities
+├── budget/             # Budget management blueprint
+│   ├── __init__.py    # Blueprint initialization
+│   ├── forms.py       # Budget creation and management forms
+│   ├── routes.py      # Budget CRUD operations
+│   ├── budget_logic.py # Budget calculations and business logic
+│   └── utils.py       # Budget-specific utilities
+├── config/             # Configuration settings
+│   ├── __init__.py    # Config initialization
+│   └── settings.py    # Environment-specific settings
+├── debt/               # Debt management blueprint
+│   ├── __init__.py    # Blueprint initialization
+│   ├── forms.py       # Debt tracking forms
+│   └── routes.py      # Debt management routes
+├── main/              # Main application blueprint
+│   ├── __init__.py    # Blueprint initialization
+│   ├── routes.py      # Core routes (home, dashboard)
+│   └── errors.py      # Error handlers
+├── profile/           # Profile management blueprint
+│   ├── __init__.py    # Blueprint initialization
+│   ├── forms.py       # Profile forms with tax information
+│   ├── routes.py      # Profile CRUD operations
+│   └── utils.py       # Profile-specific utilities
+├── static/            # Static files
+│   ├── css/          # Stylesheets
+│   │   ├── style.css # Main stylesheet
+│   │   └── forms.css # Form-specific styles
+│   ├── js/           # JavaScript files
+│   │   ├── budget.js # Budget form handling
+│   │   ├── income.js # Income calculations
+│   │   └── utils.js  # Shared functions
+│   └── img/          # Images and icons
+├── templates/         # Jinja2 HTML templates
+│   ├── auth/         # Authentication templates
+│   │   ├── login.html    # Login form
+│   │   ├── register.html # Registration form
+│   │   └── reset.html    # Password reset
+│   ├── budget/       # Budget templates
+│   │   ├── create.html   # Budget creation
+│   │   ├── view.html     # Budget display
+│   │   ├── edit.html     # Budget modification
+│   │   └── list.html     # Budget listing
+│   ├── main/         # Core templates
+│   │   ├── home.html     # Landing page
+│   │   └── dashboard.html # User dashboard
+│   ├── profile/      # Profile templates
+│   │   ├── create.html   # Profile creation
+│   │   └── edit.html     # Profile editing
+│   ├── weather/      # Weather templates
+│   │   └── weather.html  # Weather display
+│   ├── base.html     # Base template with layout
+│   ├── header.html   # Navigation header
+│   └── footer.html   # Page footer
+├── tests/            # Test suite
+│   ├── conftest.py   # Test fixtures and configuration
+│   ├── test_auth.py  # Authentication tests
+│   ├── test_budget.py # Budget functionality tests
+│   ├── test_profile.py # Profile management tests
+│   └── test_weather.py # Weather integration tests
+└── weather/          # Weather integration blueprint
+    ├── __init__.py   # Blueprint initialization
+    ├── forms.py      # Weather search forms
+    ├── routes.py     # Weather routes
+    └── service.py    # OpenWeather API integration
+```
+
+## Key Components
+
+### Configuration
+- `config/settings.py`: Environment-specific configurations
+  - Development settings with debug features
+  - Production settings with security measures
+  - Testing settings for automated tests
+- `.env`: Environment variables
+  - Database URLs
+  - API keys and secrets
+  - Flask configuration
+- `pytest.ini`: Testing configuration
+  - Test discovery rules
+  - Plugin settings
+  - Test markers
+
+### Database
+- `models.py`: SQLAlchemy models
+  - User model with authentication
+  - Profile model with tax information
+  - Budget model with relationships
+  - Income and expense tracking
+- `migrations/`: Alembic migration files
+  - Version-controlled schema changes
+  - Data migrations
+  - Rollback capabilities
+
+### Routes and Views
+Each blueprint contains:
+- `routes.py`: Route definitions and view logic
+- `forms.py`: WTForms for data validation
+- `utils.py`: Blueprint-specific helper functions
+- Custom business logic (e.g., `budget_logic.py`)
+
+### Templates
+Organized by blueprint with shared layouts:
+- `base.html`: Base template with common structure
+- Blueprint-specific template folders
+- Partial templates for reusable components
+- Consistent styling and navigation
+
+### Static Files
+- `static/css/`: Stylesheets
+  - Main application styles
+  - Blueprint-specific styles
+  - Third-party CSS
+- `static/js/`: JavaScript files
+  - Form handling and validation
+  - AJAX requests
+  - UI interactions
+- `static/img/`: Images and icons
+  - Application assets
+  - User uploads
+  - UI elements
+
+### Testing
+- `tests/`: Test files organized by component
+  - Unit tests for models and utilities
+  - Integration tests for routes
+  - Functional tests for features
+- `conftest.py`: Shared test fixtures
+  - Database setup
+  - Authentication helpers
+  - Mock objects
+
+### Documentation
+- `docs/`: Project documentation
+  - `database_schema.md`: Database documentation
+  - `structure_flask.md`: Project structure
+  - API documentation
+  - Setup and deployment guides
+
+## Notes
+- Each blueprint is self-contained with its own routes, forms, and templates
+- Configuration is environment-aware (development, testing, production)
+- Tests are organized by component for maintainability
+- Static files and templates follow blueprint organization
+- Documentation is maintained in Markdown format
+- Consistent naming conventions across the project
+- Modular design for easy feature additions
+- Comprehensive error handling and logging
+- Security best practices implemented throughout
