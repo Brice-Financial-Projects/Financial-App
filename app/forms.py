@@ -3,6 +3,8 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, FloatField, SelectField, SubmitField, FormField, FieldList
 from wtforms.validators import DataRequired, Optional, NumberRange
+from wtforms.fields import SelectMultipleField
+
 
 class UtilityField(FlaskForm):
     electricity = FloatField('Electricity', validators=[Optional()])
