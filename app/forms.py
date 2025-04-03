@@ -4,6 +4,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, FloatField, SelectField, SubmitField, FormField, FieldList
 from wtforms.validators import DataRequired, Optional, NumberRange
 from wtforms.fields import SelectMultipleField
+from wtforms.widgets import ListWidget, CheckboxInput
 
 
 class UtilityField(FlaskForm):
