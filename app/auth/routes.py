@@ -18,9 +18,6 @@ def register():
     form = RegistrationForm()
     if form.validate_on_submit():
         try:
-            # Debugging - Print password (for development purposes)
-            print(f"DEBUG: Password entered: {form.password.data}")
-            
             # Create new user (User model hashes the password)
             new_user = User(
                 username=form.username.data,
