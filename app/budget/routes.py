@@ -7,6 +7,10 @@ from app.models import Budget, BudgetItem, Profile, GrossIncome
 from app.forms import BudgetForm, IncomeForm
 from app.budget.budget_logic import BudgetCalculator
 from contextlib import contextmanager
+from datetime import datetime
+from app.forms import CategorySelectionForm
+from app.helpers.budget_helpers import get_category_name
+
 
 
 
@@ -35,21 +39,22 @@ def create_budget():
             flash("No categories provided. Please add at least one category.", "danger")
             return redirect(url_for('budget.create_budget'))
 
-        # Clear categories from session to avoid conflicts
-        session.pop('categories', None)
+        # Create a new budget object and save it to the database
+        new_budget = Budget(
+            name=budget_name,
+            user_id=current_user.id,
+            created_at=datetime.now()
+        )
+        db.session.add(new_budget)
+        db.session.commit()
 
-        # Store categories in session for tracking
-        categories = {}
-        for i, category in enumerate(category_names):
-            subcategories = request.form.getlist(f'subcategory_{i}[]')
-            subcategories = [sub.strip() for sub in subcategories if sub.strip()]
-            categories[category] = subcategories
+        # Store the budget ID in session
+        session['budget_id'] = new_budget.id
+        session.modified = True
 
-        session['categories'] = categories
-        session.modified = True  
-
-        flash("Budget categories created! Proceeding to input details.", "success")
-        return redirect(url_for('budget.input_budget'))
+        flash("Budget created! Now select your categories.", "success")
+        # Redirect to the new select_categories page instead of directly to input_budget
+        return redirect(url_for('budget.select_categories', budget_id=new_budget.id))
 
     return render_template('budget/budget_create.html', form=form, budget_name=budget_name)
 
@@ -621,6 +626,97 @@ def calculate(budget_id):
         db.session.rollback()
         flash("An error occurred while calculating your budget. Please try again later.", "danger")
         return redirect(url_for('budget.preview'))
+
+
+@budget_bp.route('/select_categories/<int:budget_id>', methods=['GET', 'POST'])
+@login_required
+def select_categories(budget_id):
+    # Check if budget exists and belongs to the current user
+    budget = Budget.query.filter_by(id=budget_id, user_id=current_user.id).first_or_404()
+
+    form = CategorySelectionForm()
+
+    if request.method == 'POST':
+        selected_categories = request.form.getlist('categories')
+
+        if not selected_categories:
+            flash("Please select at least one category.", "warning")
+            return redirect(url_for('budget.select_categories', budget_id=budget_id))
+
+        # Process the selected categories
+        categories = {}
+
+        # Group the selected categories by category type
+        for category_id in selected_categories:
+            parts = category_id.split('_', 1)
+            if len(parts) >= 2:
+                category_type = parts[0]
+                item_id = parts[1]
+
+                # Find the category name based on the selected ID
+                # This mapping would need to be consistent with your form
+                category_name = get_category_name(category_type, item_id)
+
+                # Add to categories dict with empty subcategories list
+                # User will fill these in on the next page
+                if category_type not in categories:
+                    categories[category_type] = {}
+
+                categories[category_type][category_name] = []
+
+        # Store in session for the input_budget page
+        session['categories'] = categories
+        session['budget_id'] = budget_id
+        session.modified = True
+
+        flash("Categories selected! Proceeding to input details.", "success")
+        return redirect(url_for('budget.input_budget'))
+
+    # Prepare category data for the template
+    # These could also come from a database or configuration
+    housing_categories = [
+        {'id': 'rent', 'name': 'Rent/Mortgage'},
+        {'id': 'property_tax', 'name': 'Property Tax'},
+        {'id': 'hoa', 'name': 'HOA Fee'},
+        {'id': 'home_insurance', 'name': 'Home Insurance'},
+        {'id': 'home_repairs', 'name': 'Home Repairs'}
+    ]
+
+    utility_categories = [
+        {'id': 'electricity', 'name': 'Electricity'},
+        {'id': 'water', 'name': 'Water'},
+        {'id': 'gas', 'name': 'Gas'},
+        {'id': 'trash', 'name': 'Trash'},
+        {'id': 'sewer', 'name': 'Sewer'}
+    ]
+
+    bill_categories = [
+        {'id': 'internet', 'name': 'Internet'},
+        {'id': 'cell_phone', 'name': 'Cell Phone'},
+        {'id': 'cable', 'name': 'Cable/Streaming'},
+        {'id': 'insurance', 'name': 'Insurance'},
+        {'id': 'gym', 'name': 'Gym Membership'},
+        {'id': 'cloud_storage', 'name': 'Cloud Storage'}
+    ]
+
+    transport_categories = [
+        {'id': 'car_payment', 'name': 'Car Payment'},
+        {'id': 'car_insurance', 'name': 'Car Insurance'},
+        {'id': 'fuel', 'name': 'Fuel'},
+        {'id': 'maintenance', 'name': 'Maintenance'},
+        {'id': 'public_transport', 'name': 'Public Transportation'}
+    ]
+
+    # Add more category groups as needed
+
+    return render_template('budget/budget_categories.html',
+                           form=form,
+                           budget_id=budget_id,
+                           housing_categories=housing_categories,
+                           utility_categories=utility_categories,
+                           bill_categories=bill_categories,
+                           transport_categories=transport_categories)
+
 
 
 @budget_bp.route('/download/<int:budget_id>', methods=['GET'])

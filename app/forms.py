@@ -59,10 +59,6 @@ class BudgetForm(FlaskForm):
     submit = SubmitField('Calculate Budget')
 
 
-from flask_wtf import FlaskForm
-from wtforms import StringField, FloatField, SelectField, FieldList, FormField, SubmitField
-from wtforms.validators import DataRequired, Optional
-
 class OtherIncomeField(FlaskForm):
     """Form field for additional income sources."""
     category = SelectField(
@@ -115,3 +111,13 @@ class IncomeForm(FlaskForm):
     save = SubmitField('Save Income')
     preview = SubmitField('Next: Budget Preview')
 
+
+# forms.py (add this at the top)
+class MultiCheckboxField(SelectMultipleField):
+    widget = ListWidget(prefix_label=False)
+    option_widget = CheckboxInput()
+
+
+class CategorySelectionForm(FlaskForm):
+    categories = MultiCheckboxField('Categories', coerce=str)
+    submit = SubmitField('Next: Input Details')
