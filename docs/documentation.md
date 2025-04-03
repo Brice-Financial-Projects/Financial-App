@@ -98,3 +98,11 @@
       - Add authentication for sensitive endpoints
       
 
+- Date: 4/2/2025
+    Progress
+        - Revised flash messages to be rendered from the base.html.  (Fixed delay)
+
+    Needs Improvement
+        - Budget name does not appear to be saved in the db.
+        - After create budget, the page is supposed to route to budget categories.  Then to budget input with prepopulated categories.  It currently is still routing to budget input.
+- 
