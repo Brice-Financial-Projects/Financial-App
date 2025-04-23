@@ -35,6 +35,7 @@ class DevelopmentConfig(Config):
         'DEV_DATABASE_URL',
     )
     SQLALCHEMY_RECORD_QUERIES = True
+    SESSION_TYPE = "filesystem"  # Use filesystem for dev environment
     DEBUG_TB_PANELS = [
         'flask_debugtoolbar.panels.headers.HeaderDebugPanel',
         'flask_debugtoolbar.panels.logger.LoggingPanel',
