@@ -54,8 +54,24 @@ class TestingConfig(Config):
 
 class ProductionConfig(Config):
     """Production-specific configuration."""
-    SQLALCHEMY_DATABASE_URI = os.getenv(
-        'DATABASE_URL',
-    )
+    # Handle Heroku's postgres:// URL format
+    database_url = os.getenv('DATABASE_URL', '')
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    
+    SQLALCHEMY_DATABASE_URI = database_url
     SESSION_TYPE = "redis"  # Use Redis in production
     SESSION_REDIS = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    
+    # Connection pooling settings
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 20,  # Maximum number of permanent connections
+        'pool_timeout': 30,  # Seconds to wait before timing out
+        'pool_recycle': 1800,  # Recycle connections after 30 minutes
+        'max_overflow': 10,  # Allow up to 10 connections beyond pool_size
+    }
+    
+    # Additional production settings
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    WTF_CSRF_ENABLED = True
+    PROPAGATE_EXCEPTIONS = True  # Ensure we see production errors
