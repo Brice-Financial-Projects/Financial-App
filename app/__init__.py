@@ -92,6 +92,12 @@ def create_app():
         app.register_blueprint(profile_bp)
         app.register_blueprint(weather_bp, url_prefix="/weather")
 
+    with app.app_context():
+        db.create_all()  # Create database tables if they don't exist
+        
+        # Populate expense categories and templates
+        from app.helpers.budget_helpers import populate_expense_categories
+        populate_expense_categories(db)
 
     # Error handlers
     @app.errorhandler(404)
