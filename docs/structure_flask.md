@@ -16,7 +16,23 @@ finance-budget-app/
 │   ├── env.py          # Migration environment settings
 │   └── alembic.ini     # Alembic configuration
 ├── scripts/              # Utility and maintenance scripts
-├── tests/                # Test files and configurations
+├── tests/               # Test suite
+│   ├── __init__.py     # Test package initialization
+│   ├── conftest.py     # Test fixtures and configuration
+│   ├── functional/     # View and route testing
+│   │   ├── __init__.py # Functional tests initialization
+│   │   ├── test_auth_views.py    # Authentication view tests
+│   │   ├── test_budget_views.py  # Budget view tests
+│   │   ├── test_profile_views.py # Profile view tests
+│   │   └── test_weather_views.py # Weather view tests
+│   ├── integration/    # External system integration tests
+│   │   ├── __init__.py # Integration tests initialization
+│   │   ├── test_db.py  # Database integration tests
+│   │   └── test_weather_api.py # Weather API integration tests
+│   └── unit/          # Unit tests for models and utilities
+│       ├── __init__.py # Unit tests initialization
+│       ├── test_models.py # Database model tests
+│       └── test_utils.py  # Utility function tests
 ├── venv/                 # Python virtual environment
 ├── .env                  # Environment variables and secrets
 ├── .gitignore           # Git ignore patterns
@@ -96,98 +112,9 @@ app/
 │   ├── base.html     # Base template with layout
 │   ├── header.html   # Navigation header
 │   └── footer.html   # Page footer
-├── tests/            # Test suite
-│   ├── conftest.py   # Test fixtures and configuration
-│   ├── test_auth.py  # Authentication tests
-│   ├── test_budget.py # Budget functionality tests
-│   ├── test_profile.py # Profile management tests
-│   └── test_weather.py # Weather integration tests
 └── weather/          # Weather integration blueprint
     ├── __init__.py   # Blueprint initialization
     ├── forms.py      # Weather search forms
     ├── routes.py     # Weather routes
     └── service.py    # OpenWeather API integration
 ```
-
-## Key Components
-
-### Configuration
-- `config/settings.py`: Environment-specific configurations
-  - Development settings with debug features
-  - Production settings with security measures
-  - Testing settings for automated tests
-- `.env`: Environment variables
-  - Database URLs
-  - API keys and secrets
-  - Flask configuration
-- `pytest.ini`: Testing configuration
-  - Test discovery rules
-  - Plugin settings
-  - Test markers
-
-### Database
-- `models.py`: SQLAlchemy models
-  - User model with authentication
-  - Profile model with tax information
-  - Budget model with relationships
-  - Income and expense tracking
-- `migrations/`: Alembic migration files
-  - Version-controlled schema changes
-  - Data migrations
-  - Rollback capabilities
-
-### Routes and Views
-Each blueprint contains:
-- `routes.py`: Route definitions and view logic
-- `forms.py`: WTForms for data validation
-- `utils.py`: Blueprint-specific helper functions
-- Custom business logic (e.g., `budget_logic.py`)
-
-### Templates
-Organized by blueprint with shared layouts:
-- `base.html`: Base template with common structure
-- Blueprint-specific template folders
-- Partial templates for reusable components
-- Consistent styling and navigation
-
-### Static Files
-- `static/css/`: Stylesheets
-  - Main application styles
-  - Blueprint-specific styles
-  - Third-party CSS
-- `static/js/`: JavaScript files
-  - Form handling and validation
-  - AJAX requests
-  - UI interactions
-- `static/img/`: Images and icons
-  - Application assets
-  - User uploads
-  - UI elements
-
-### Testing
-- `tests/`: Test files organized by component
-  - Unit tests for models and utilities
-  - Integration tests for routes
-  - Functional tests for features
-- `conftest.py`: Shared test fixtures
-  - Database setup
-  - Authentication helpers
-  - Mock objects
-
-### Documentation
-- `docs/`: Project documentation
-  - `database_schema.md`: Database documentation
-  - `structure_flask.md`: Project structure
-  - API documentation
-  - Setup and deployment guides
-
-## Notes
-- Each blueprint is self-contained with its own routes, forms, and templates
-- Configuration is environment-aware (development, testing, production)
-- Tests are organized by component for maintainability
-- Static files and templates follow blueprint organization
-- Documentation is maintained in Markdown format
-- Consistent naming conventions across the project
-- Modular design for easy feature additions
-- Comprehensive error handling and logging
-- Security best practices implemented throughout

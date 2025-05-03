@@ -190,6 +190,39 @@ class Budget(db.Model):
         return f"<Budget {self.name} (Status: {self.status})>"
 
 
+# -------------------- Expense Category Model --------------------
+class ExpenseCategory(db.Model):
+    __tablename__ = "expense_categories"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+    description = db.Column(db.String(200))
+    priority = db.Column(db.Integer, default=0)  # For ordering categories (lower = higher priority)
+    
+    # Relationships
+    expense_templates = db.relationship("ExpenseTemplate", back_populates="category", cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<ExpenseCategory {self.name}>"
+
+
+# -------------------- Expense Template Model --------------------
+class ExpenseTemplate(db.Model):
+    __tablename__ = "expense_templates"
+
+    id = db.Column(db.Integer, primary_key=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('expense_categories.id'), nullable=False)
+    name = db.Column(db.String(50), nullable=False)
+    description = db.Column(db.String(200))
+    is_default = db.Column(db.Boolean, default=False)  # Whether this expense is included by default
+    priority = db.Column(db.Integer, default=0)  # For ordering within a category
+    
+    # Relationships
+    category = db.relationship("ExpenseCategory", back_populates="expense_templates")
+    
+    def __repr__(self):
+        return f"<ExpenseTemplate {self.name} (Category: {self.category.name})>"
+
 
 # -------------------- BudgetItem Model --------------------
 class BudgetItem(db.Model):
@@ -201,9 +234,12 @@ class BudgetItem(db.Model):
     name = db.Column(db.String(50), nullable=False)
     minimum_payment = db.Column(db.Float, nullable=False, default=0.0)
     preferred_payment = db.Column(db.Float, nullable=False, default=0.0)
+    # Link to the template if this item was created from a template
+    template_id = db.Column(db.Integer, db.ForeignKey('expense_templates.id'), nullable=True)
 
     # Relationship
     budget = db.relationship("Budget", back_populates="budget_items")
+    template = db.relationship("ExpenseTemplate", foreign_keys=[template_id])
 
     def __repr__(self):
         return f"<BudgetItem {self.category} - {self.name}>"

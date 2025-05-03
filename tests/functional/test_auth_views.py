@@ -1,4 +1,4 @@
-"""Test authentication routes."""
+"""Functional tests for authentication views."""
 import pytest
 from flask import url_for
 
