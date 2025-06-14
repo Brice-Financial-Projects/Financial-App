@@ -94,43 +94,35 @@ class BudgetCalculator:
         if not budget.gross_income_sources:
             raise ValueError("Budget must have at least one income source")
 
-    def calculate_gross_income(self):
+    def calculate_gross_income(self) -> Dict[str, Any]:
         """Calculate total gross income from all sources."""
         try:
             total_annual = Decimal('0')
             income_details = []
-
+            
             # Get all income sources for this budget
             income_sources = GrossIncome.query.filter_by(budget_id=self.budget.id).all()
-
-            for source in income_sources:
+            
+            for income in income_sources:
                 # Convert to annual amount based on frequency
-                base_amount = Decimal(str(source.gross_income))
-                if source.frequency == 'weekly':
-                    annual_amount = base_amount * Decimal('52')
-                elif source.frequency == 'biweekly':
-                    annual_amount = base_amount * Decimal('26')
-                elif source.frequency == 'monthly':
-                    annual_amount = base_amount * Decimal('12')
-                elif source.frequency == 'bimonthly':
-                    annual_amount = base_amount * Decimal('24')
-                else:  # annual
-                    annual_amount = base_amount
-
+                annual_amount = self._convert_to_annual(
+                    Decimal(str(income.gross_income)),
+                    income.frequency
+                )
                 total_annual += annual_amount
-
-                # Calculate monthly amount for display
+                
+                # Calculate monthly amount
                 monthly_amount = annual_amount / Decimal('12')
-
+                
                 income_details.append({
-                    'source': source.source,
-                    'category': source.category,
+                    'source': income.name,
+                    'category': income.category,
                     'annual': annual_amount,
                     'monthly': monthly_amount,
-                    'frequency': source.frequency,
-                    'tax_type': source.tax_type
+                    'frequency': income.frequency,
+                    'tax_type': income.tax_type
                 })
-
+            
             return {
                 'annual': total_annual,
                 'monthly': total_annual / Decimal('12'),
@@ -138,7 +130,26 @@ class BudgetCalculator:
             }
         except Exception as e:
             current_app.logger.error(f"Error calculating gross income: {str(e)}")
-            raise
+            raise ValueError(f"Error calculating gross income: {str(e)}")
+
+    def _convert_to_annual(self, amount: Decimal, frequency: str) -> Decimal:
+        """Convert an amount to annual based on its frequency."""
+        try:
+            if frequency == 'weekly':
+                return amount * Decimal('52')
+            elif frequency == 'biweekly':
+                return amount * Decimal('26')
+            elif frequency == 'monthly':
+                return amount * Decimal('12')
+            elif frequency == 'bimonthly':
+                return amount * Decimal('24')
+            elif frequency == 'annual':
+                return amount
+            else:
+                raise ValueError(f"Invalid frequency: {frequency}")
+        except Exception as e:
+            current_app.logger.error(f"Error converting to annual: {str(e)}")
+            raise ValueError(f"Error converting to annual: {str(e)}")
 
     def calculate_pre_tax_deductions(self) -> Dict[str, Decimal]:
         """Calculate pre-tax deductions including retirement, health insurance, etc."""
@@ -297,89 +308,70 @@ class BudgetCalculator:
     def calculate_budget(self) -> Dict[str, Any]:
         """Calculate the final budget with all components."""
         try:
-            # Get gross income (already annual)
+            # Get all components
             gross_income = self.calculate_gross_income()
-            total_annual_gross = gross_income['annual']
-            total_monthly_gross = total_annual_gross / 12
-
-            # Calculate pre-tax deductions
-            deductions = self.calculate_pre_tax_deductions()
-            total_annual_deductions = deductions['total']
-            total_monthly_deductions = total_annual_deductions / 12
-
-            # Calculate taxable income
+            pre_tax_deductions = self.calculate_pre_tax_deductions()
             taxable_info = self.calculate_taxable_income()
-            total_annual_taxable = taxable_info['taxable_income']
-            total_monthly_taxable = total_annual_taxable / 12
-
-            # Calculate tax withholdings
             tax_data = self.calculate_tax_withholdings()
-            total_annual_tax = tax_data['total']
-            total_monthly_tax = total_annual_tax / 12
-
-            # Calculate net income
-            total_annual_net = total_annual_gross - total_annual_deductions - total_annual_tax
-            total_monthly_net = total_annual_net / 12
-
-            # Get all budget items
-            budget_items = BudgetItem.query.filter_by(budget_id=self.budget.id).all()
             
-            # Calculate total expenses
-            total_monthly_expenses = sum(float(item.minimum_payment) for item in budget_items)
+            # Extract annual amounts
+            total_annual_gross = gross_income['annual']
+            total_annual_deductions = pre_tax_deductions['total']
+            total_annual_taxable = taxable_info['annual']
+            total_annual_tax = tax_data['total']
+            
+            # Calculate net income
+            total_annual_net = total_annual_taxable - total_annual_tax
+            
+            # Get all expenses
+            expenses = BudgetItem.query.filter_by(budget_id=self.budget.id).all()
+            total_expenses = sum(Decimal(str(item.minimum_payment)) for item in expenses)
             
             # Calculate remaining money
-            remaining_money = total_monthly_net - total_monthly_expenses
-
+            remaining_money = total_annual_net - total_expenses
+            
             return {
                 'gross_income': {
                     'annual': total_annual_gross,
-                    'monthly': total_monthly_gross,
+                    'monthly': total_annual_gross / Decimal('12'),
                     'details': gross_income['details']
                 },
                 'deductions': {
                     'annual': total_annual_deductions,
-                    'monthly': total_monthly_deductions,
-                    'details': deductions
+                    'monthly': total_annual_deductions / Decimal('12'),
+                    'details': pre_tax_deductions
                 },
                 'taxable_income': {
                     'annual': total_annual_taxable,
-                    'monthly': total_monthly_taxable
+                    'monthly': total_annual_taxable / Decimal('12')
                 },
                 'tax_withholdings': {
                     'annual': total_annual_tax,
-                    'monthly': total_monthly_tax,
+                    'monthly': total_annual_tax / Decimal('12'),
                     'details': tax_data
                 },
                 'net_income': {
                     'annual': total_annual_net,
-                    'monthly': total_monthly_net
+                    'monthly': total_annual_net / Decimal('12')
                 },
                 'expenses': {
-                    'total': total_monthly_expenses,
-                    'items': budget_items
+                    'total': total_expenses,
+                    'monthly': total_expenses / Decimal('12'),
+                    'details': [{
+                        'category': item.category,
+                        'name': item.name,
+                        'minimum_payment': item.minimum_payment,
+                        'preferred_payment': item.preferred_payment
+                    } for item in expenses]
                 },
-                'remaining_money': remaining_money
+                'remaining_money': {
+                    'annual': remaining_money,
+                    'monthly': remaining_money / Decimal('12')
+                }
             }
-
         except Exception as e:
             current_app.logger.error(f"Error calculating budget: {str(e)}")
-            raise
-
-    def _convert_to_annual(self, amount: Decimal, frequency: str) -> Decimal:
-        """Convert an amount to annual based on frequency"""
-        try:
-            multiplier = self.schedule_multipliers.get(frequency.lower())
-            if multiplier is None:
-                logger.warning(f"Unknown frequency '{frequency}', defaulting to annual")
-                multiplier = Decimal('1')
-
-            annual_amount = amount * multiplier
-            logger.debug(f"Converted {amount} from {frequency} to annual: {annual_amount}")
-            return annual_amount
-            
-        except (TypeError, InvalidOperation) as e:
-            logger.error(f"Error converting to annual amount: {str(e)}")
-            raise ValueError(f"Error converting to annual amount: {str(e)}")
+            raise ValueError(f"Error calculating budget: {str(e)}")
 
     @property
     def primary_income(self):

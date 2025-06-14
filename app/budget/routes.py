@@ -180,24 +180,23 @@ def income():
                 
                 # Add new other income sources
                 for i in range(other_income_count):
-                    category = request.form.get(f'other_income_{i}_category')
-                    source = request.form.get(f'other_income_{i}_name')
-                    amount = request.form.get(f'other_income_{i}_amount')
-                    frequency = request.form.get(f'other_income_{i}_frequency')
-                    tax_type = "Other"  # Default tax type for other income 
+                    category = request.form.get(f'other_income_sources-{i}-category')
+                    name = request.form.get(f'other_income_sources-{i}-name')
+                    amount = request.form.get(f'other_income_sources-{i}-amount')
+                    frequency = request.form.get(f'other_income_sources-{i}-frequency')
                     
-                    if category and source and amount and frequency:
+                    if category and name and amount and frequency:
                         new_income = GrossIncome(
                             budget_id=budget.id,
                             category=category,
-                            source=source,
+                            source=name,
                             gross_income=float(amount),  # Store raw amount
                             frequency=frequency,
-                            tax_type=tax_type,
+                            tax_type="Other",  # Default tax type for other income
                             state_tax_ref=profile.state
                         )
                         db.session.add(new_income)
-                        print(f"Added other income: {category} - {source} - ${amount} ({frequency})")
+                        print(f"Added other income: {category} - {name} - ${amount} ({frequency})")
                 
                 # Commit all changes
                 db.session.commit()

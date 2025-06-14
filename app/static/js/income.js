@@ -3,6 +3,14 @@
 document.addEventListener('DOMContentLoaded', function () {
     const container = document.getElementById('other-income-container');
     const addIncomeButton = document.getElementById('add-income');
+    let incomeCount = 0;
+
+    // Add hidden input for income count
+    const countInput = document.createElement('input');
+    countInput.type = 'hidden';
+    countInput.name = 'other_income_count';
+    countInput.value = '0';
+    container.parentNode.insertBefore(countInput, container);
 
     addIncomeButton.addEventListener('click', function () {
         // Remove any "no income sources" message if it exists
@@ -11,15 +19,13 @@ document.addEventListener('DOMContentLoaded', function () {
             infoMessage.remove();
         }
         
-        const index = container.children.length;
         const newEntry = document.createElement('div');
         newEntry.classList.add('income-entry', 'mb-3');
         
-        // No need to add CSRF token for each entry - it's at the form level
         newEntry.innerHTML = `
             <div class="mb-3">
                 <label class="form-label">Income Type</label>
-                <select class="form-select" name="other_income_sources-${index}-category">
+                <select class="form-select" name="other_income_sources-${incomeCount}-category">
                     <option value="">Select Income Type</option>
                     <option value="rental">Rental Income</option>
                     <option value="investment">Investment Dividends</option>
@@ -34,17 +40,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
             <div class="mb-3">
                 <label class="form-label">Income Source Name</label>
-                <input type="text" class="form-control" name="other_income_sources-${index}-name">
+                <input type="text" class="form-control" name="other_income_sources-${incomeCount}-name">
             </div>
 
             <div class="mb-3">
                 <label class="form-label">Amount</label>
-                <input type="number" class="form-control" name="other_income_sources-${index}-amount" step="0.01" min="0">
+                <input type="number" class="form-control" name="other_income_sources-${incomeCount}-amount" step="0.01" min="0">
             </div>
 
             <div class="mb-3">
                 <label class="form-label">Frequency</label>
-                <select class="form-select" name="other_income_sources-${index}-frequency">
+                <select class="form-select" name="other_income_sources-${incomeCount}-frequency">
                     <option value="">Select Frequency</option>
                     <option value="weekly">Weekly</option>
                     <option value="biweekly">Biweekly</option>
@@ -57,6 +63,8 @@ document.addEventListener('DOMContentLoaded', function () {
             <button type="button" class="btn btn-danger remove-income">Remove</button>
         `;
         container.appendChild(newEntry);
+        incomeCount++;
+        countInput.value = incomeCount;
     });
 
     // Handle removal of income sources
@@ -65,6 +73,9 @@ document.addEventListener('DOMContentLoaded', function () {
             const entry = event.target.closest('.income-entry');
             if (entry) {
                 entry.remove();
+                incomeCount--;
+                countInput.value = incomeCount;
+                
                 // Reindex remaining entries
                 const entries = container.querySelectorAll('.income-entry');
                 entries.forEach((entry, index) => {
