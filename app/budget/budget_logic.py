@@ -34,10 +34,11 @@ Notes:
 import logging
 from datetime import datetime
 from enum import Enum
-from typing import TypedDict, Dict
+from typing import TypedDict, Dict, Any
 from decimal import Decimal, InvalidOperation, DivisionByZero
 from dataclasses import dataclass
-from app.models import Budget, GrossIncome, OtherIncome
+from app.models import Budget, GrossIncome, OtherIncome, Profile, BudgetItem
+from flask import current_app
 
 logger = logging.getLogger(__name__)
 
@@ -93,158 +94,150 @@ class BudgetCalculator:
         if not budget.gross_income_sources:
             raise ValueError("Budget must have at least one income source")
 
-    def calculate_gross_income(self) -> Dict[str, Decimal]:
-        """
-        Calculate total gross income including salary and other income sources.
-
-        Returns:
-            Dict containing total annual gross income and its components
-        """
+    def calculate_gross_income(self):
+        """Calculate total gross income from all sources."""
         try:
-            # Get primary income from GrossIncome
-            gross_income = GrossIncome.query.filter_by(budget_id=self.budget.id).first()
-            if not gross_income:
-                raise ValueError("No gross income found for this budget")
+            total_annual = Decimal('0')
+            income_details = []
 
-            # Use gross_income field and normalize to annual based on frequency
-            base_salary = Decimal(str(gross_income.gross_income or 0))
-            if gross_income.frequency:
-                multiplier = self.schedule_multipliers.get(gross_income.frequency, Decimal('1'))
-                base_salary *= multiplier
+            # Get all income sources for this budget
+            income_sources = GrossIncome.query.filter_by(budget_id=self.budget.id).all()
 
-            # Calculate other income
-            other_income_total = Decimal('0')
-            other_incomes = OtherIncome.query.filter_by(budget_id=self.budget.id).all()
+            for source in income_sources:
+                # Convert to annual amount based on frequency
+                base_amount = Decimal(str(source.gross_income))
+                if source.frequency == 'weekly':
+                    annual_amount = base_amount * Decimal('52')
+                elif source.frequency == 'biweekly':
+                    annual_amount = base_amount * Decimal('26')
+                elif source.frequency == 'monthly':
+                    annual_amount = base_amount * Decimal('12')
+                elif source.frequency == 'bimonthly':
+                    annual_amount = base_amount * Decimal('24')
+                else:  # annual
+                    annual_amount = base_amount
 
-            for income in other_incomes:
-                if income.amount and income.amount > 0:
-                    other_amount = Decimal(str(income.amount))
-                    # Normalize to annual amount based on payment schedule
-                    if income.frequency:
-                        multiplier = self.schedule_multipliers.get(income.frequency, Decimal('1'))
-                        other_amount *= multiplier
-                    other_income_total += other_amount
+                total_annual += annual_amount
 
-            total_annual_gross = base_salary + other_income_total
+                # Calculate monthly amount for display
+                monthly_amount = annual_amount / Decimal('12')
+
+                income_details.append({
+                    'source': source.source,
+                    'category': source.category,
+                    'annual': annual_amount,
+                    'monthly': monthly_amount,
+                    'frequency': source.frequency,
+                    'tax_type': source.tax_type
+                })
 
             return {
-                'base_salary': base_salary,
-                'other_income': other_income_total,
-                'total_annual_gross': total_annual_gross
+                'annual': total_annual,
+                'monthly': total_annual / Decimal('12'),
+                'details': income_details
             }
-
-        except (TypeError, ValueError, InvalidOperation) as e:
-            logger.error(f"Error calculating gross income: {str(e)}")
-            raise ValueError(f"Error calculating gross income: {str(e)}")
+        except Exception as e:
+            current_app.logger.error(f"Error calculating gross income: {str(e)}")
+            raise
 
     def calculate_pre_tax_deductions(self) -> Dict[str, Decimal]:
-        """Calculate all pre-tax deductions"""
-        deductions = {
-            'retirement': Decimal('0'),
-            'health_insurance': Decimal('0'),
-            'fsa_hsa': Decimal('0'),
-            'other_benefits': Decimal('0')
-        }
-
+        """Calculate pre-tax deductions including retirement, health insurance, etc."""
         try:
-            profile = self.budget.profile
-            if profile:
-                # Retirement
-                if profile.retirement_contribution and profile.retirement_contribution > 0:
-                    if profile.retirement_contribution_type == "pretax":
-                        deductions['retirement'] = Decimal(str(profile.retirement_contribution))
-                
-                # Health Insurance
-                if profile.health_insurance_premium and profile.health_insurance_premium > 0:
-                    deductions['health_insurance'] = Decimal(str(profile.health_insurance_premium))
-                
-                # FSA/HSA
-                fsa_hsa_total = (profile.hsa_contribution or 0) + (profile.fsa_contribution or 0)
-                if fsa_hsa_total > 0:
-                    deductions['fsa_hsa'] = Decimal(str(fsa_hsa_total))
-                
-                # Other benefits
-                if profile.other_pretax_benefits and profile.other_pretax_benefits > 0:
-                    deductions['other_benefits'] = Decimal(str(profile.other_pretax_benefits))
+            # Get gross income data
+            gross_income_data = self.calculate_gross_income()
+            total_annual_gross = Decimal(str(gross_income_data['annual']))
 
-            deductions['total_deductions'] = sum(deductions.values())
-            return deductions
+            # Get profile data
+            profile = Profile.query.filter_by(id=self.budget.profile_id).first()
+            if not profile:
+                raise ValueError("No profile found for this budget")
 
-        except (TypeError, ValueError, InvalidOperation) as e:
-            logger.error(f"Error calculating pre-tax deductions: {str(e)}")
-            raise ValueError(f"Error calculating pre-tax deductions: {str(e)}")
+            # Calculate retirement contribution (as percentage of gross income)
+            retirement_contribution = Decimal('0')
+            if profile.retirement_contribution and profile.retirement_contribution > 0:
+                # Convert percentage to decimal and calculate annual amount
+                retirement_percentage = Decimal(str(profile.retirement_contribution)) / Decimal('100')
+                retirement_contribution = total_annual_gross * retirement_percentage
 
-    def calculate_taxable_income(self) -> Dict[str, Decimal]:
-        """Calculate taxable income after pre-tax deductions"""
+            # Get other pre-tax deductions
+            health_insurance = Decimal(str(profile.health_insurance_premium or 0)) * Decimal('12')  # Convert monthly to annual
+            fsa_hsa = Decimal(str((profile.hsa_contribution or 0) + (profile.fsa_contribution or 0))) * Decimal('12')  # Convert monthly to annual
+            other_benefits = Decimal(str(profile.other_pretax_benefits or 0)) * Decimal('12')  # Convert monthly to annual
+
+            # Calculate total pre-tax deductions
+            total_pre_tax = retirement_contribution + health_insurance + fsa_hsa + other_benefits
+
+            return {
+                'retirement': retirement_contribution,
+                'health_insurance': health_insurance,
+                'fsa_hsa': fsa_hsa,
+                'other_benefits': other_benefits,
+                'total': total_pre_tax
+            }
+
+        except Exception as e:
+            current_app.logger.error(f"Error calculating pre-tax deductions: {str(e)}")
+            raise
+
+    def calculate_taxable_income(self):
+        """Calculate taxable income after pre-tax deductions."""
         try:
             gross_income = self.calculate_gross_income()
             pre_tax_deductions = self.calculate_pre_tax_deductions()
-
-            taxable_income = gross_income['total_annual_gross'] - pre_tax_deductions['total_deductions']
-
-            if taxable_income < 0:
-                logger.warning("Calculated taxable income is negative, setting to 0")
-                taxable_income = Decimal('0')
-
+            
+            # Use 'annual' instead of 'total_annual_gross'
+            taxable_income = gross_income['annual'] - pre_tax_deductions['total']
+            
             return {
-                'gross_income': gross_income['total_annual_gross'],
-                'pre_tax_deductions': pre_tax_deductions['total_deductions'],
-                'taxable_income': taxable_income
+                'annual': taxable_income,
+                'monthly': taxable_income / Decimal('12'),
+                'gross_income': gross_income,
+                'pre_tax_deductions': pre_tax_deductions
             }
-
-        except (TypeError, ValueError, InvalidOperation) as e:
-            logger.error(f"Error calculating taxable income: {str(e)}")
-            raise ValueError(f"Error calculating taxable income: {str(e)}")
+        except Exception as e:
+            current_app.logger.error(f"Error calculating taxable income: {str(e)}")
+            raise
 
     def calculate_tax_withholdings(self) -> Dict[str, Decimal]:
-        """Calculate current tax withholdings using fixed rates"""
-        logger.debug("Starting tax withholdings calculation")
-
-        withholdings = {
-            'federal': Decimal('0'),
-            'state': Decimal('0'),
-            'local': Decimal('0'),
-            'fica': Decimal('0')
-        }
-
+        """Calculate tax withholdings based on taxable income."""
         try:
-            # Get taxable income first
-            taxable_income_data = self.calculate_taxable_income()
-            taxable_income = taxable_income_data['taxable_income']
-
-            if taxable_income <= 0:
-                logger.debug("No taxable income to calculate withholdings")
-                withholdings['total_withholdings'] = Decimal('0')
-                return withholdings
-
-            profile = self.budget.profile
-            if not profile:
-                raise ValueError("Profile not found for tax calculation")
-
-            # Federal Tax Calculation with basic brackets
+            current_app.logger.debug("Starting tax withholdings calculation")
+            
+            # Get gross income and taxable income data
+            gross_info = self.calculate_gross_income()
+            deductions = self.calculate_pre_tax_deductions()
+            taxable_info = self.calculate_taxable_income()
+            
+            # Validate and extract required values
+            annual_gross = gross_info['annual']
+            total_deductions = deductions['total']
+            taxable_income = taxable_info['annual']
+            
+            # Calculate FICA tax (7.65% of gross income)
+            fica_tax = annual_gross * Decimal('0.0765')
+            
+            # Calculate federal tax using tax brackets
             federal_tax = self._calculate_federal_tax(taxable_income)
             
-            # State tax calculation
-            state_tax = self._calculate_state_tax(taxable_income, profile.state)
-
-            # FICA calculation (Social Security 6.2% up to limit + Medicare 1.45% no limit)
-            fica_tax = self._calculate_fica_tax(taxable_income)
-
-            # Add any additional withholding from profile
-            if profile.federal_additional_withholding:
-                federal_tax += Decimal(str(profile.federal_additional_withholding))
-            if profile.state_additional_withholding:
-                state_tax += Decimal(str(profile.state_additional_withholding))
-
-            withholdings['federal'] = federal_tax
-            withholdings['state'] = state_tax
-            withholdings['fica'] = fica_tax
-            withholdings['total_withholdings'] = sum(withholdings.values())
-
-            return withholdings
-
+            # Calculate state tax (simplified - using a flat rate)
+            state_tax = taxable_income * Decimal('0.05')  # 5% state tax rate
+            
+            # Calculate total tax
+            total_tax = federal_tax + state_tax + fica_tax
+            
+            return {
+                'federal': federal_tax,
+                'state': state_tax,
+                'fica': fica_tax,
+                'total': total_tax,
+                'details': {
+                    'gross_income': annual_gross,
+                    'pre_tax_deductions': total_deductions,
+                    'taxable_income': taxable_income
+                }
+            }
         except Exception as e:
-            logger.error(f"Error in calculate_tax_withholdings: {str(e)}")
+            current_app.logger.error(f"Error in calculate_tax_withholdings: {str(e)}")
             raise ValueError(f"Error calculating tax withholdings: {str(e)}")
 
     def _calculate_federal_tax(self, taxable_income: Decimal) -> Decimal:
@@ -301,50 +294,75 @@ class BudgetCalculator:
         
         return ss_tax + medicare_tax
 
-    def calculate_budget(self):
-        """Calculate the final budget including all income sources and tax withholdings."""
+    def calculate_budget(self) -> Dict[str, Any]:
+        """Calculate the final budget with all components."""
         try:
-            # Validate inputs first
-            if not self.budget.gross_income_sources:
-                raise ValueError("No income sources found")
-                
-            # Get gross income details
-            gross_income_data = self.calculate_gross_income()
-            total_gross = gross_income_data['total_annual_gross']
-            
-            if total_gross <= 0:
-                raise ValueError("Total gross income must be positive")
-            
-            # Get deductions
+            # Get gross income (already annual)
+            gross_income = self.calculate_gross_income()
+            total_annual_gross = gross_income['annual']
+            total_monthly_gross = total_annual_gross / 12
+
+            # Calculate pre-tax deductions
             deductions = self.calculate_pre_tax_deductions()
-            
-            # Get tax withholdings
+            total_annual_deductions = deductions['total']
+            total_monthly_deductions = total_annual_deductions / 12
+
+            # Calculate taxable income
+            taxable_info = self.calculate_taxable_income()
+            total_annual_taxable = taxable_info['taxable_income']
+            total_monthly_taxable = total_annual_taxable / 12
+
+            # Calculate tax withholdings
             tax_data = self.calculate_tax_withholdings()
-            
+            total_annual_tax = tax_data['total']
+            total_monthly_tax = total_annual_tax / 12
+
             # Calculate net income
-            net_income = total_gross - deductions['total_deductions'] - tax_data['total_withholdings']
+            total_annual_net = total_annual_gross - total_annual_deductions - total_annual_tax
+            total_monthly_net = total_annual_net / 12
+
+            # Get all budget items
+            budget_items = BudgetItem.query.filter_by(budget_id=self.budget.id).all()
             
-            # Return comprehensive budget breakdown
+            # Calculate total expenses
+            total_monthly_expenses = sum(float(item.minimum_payment) for item in budget_items)
+            
+            # Calculate remaining money
+            remaining_money = total_monthly_net - total_monthly_expenses
+
             return {
                 'gross_income': {
-                    'annual': total_gross,
-                    'monthly': total_gross / Decimal('12'),
-                    'biweekly': total_gross / Decimal('26')
+                    'annual': total_annual_gross,
+                    'monthly': total_monthly_gross,
+                    'details': gross_income['details']
                 },
-                'deductions': deductions,
-                'taxes': tax_data,
+                'deductions': {
+                    'annual': total_annual_deductions,
+                    'monthly': total_monthly_deductions,
+                    'details': deductions
+                },
+                'taxable_income': {
+                    'annual': total_annual_taxable,
+                    'monthly': total_monthly_taxable
+                },
+                'tax_withholdings': {
+                    'annual': total_annual_tax,
+                    'monthly': total_monthly_tax,
+                    'details': tax_data
+                },
                 'net_income': {
-                    'annual': net_income,
-                    'monthly': net_income / Decimal('12'),
-                    'biweekly': net_income / Decimal('26')
-                }
+                    'annual': total_annual_net,
+                    'monthly': total_monthly_net
+                },
+                'expenses': {
+                    'total': total_monthly_expenses,
+                    'items': budget_items
+                },
+                'remaining_money': remaining_money
             }
-            
-        except (InvalidOperation, DivisionByZero) as e:
-            logger.error(f"Calculation error: {str(e)}")
-            raise ValueError(f"Invalid calculation: {str(e)}")
+
         except Exception as e:
-            logger.error(f"Unexpected error: {str(e)}")
+            current_app.logger.error(f"Error calculating budget: {str(e)}")
             raise
 
     def _convert_to_annual(self, amount: Decimal, frequency: str) -> Decimal:
@@ -463,8 +481,8 @@ def calculate_net_income(self) -> NetIncomeResult:
         withholdings = self.calculate_tax_withholdings()
 
         # Validate and extract required values
-        annual_gross = Decimal(str(gross_info.get('total_annual_gross', 0)))
-        total_deductions = Decimal(str(deductions.get('total_deductions', 0)))
+        annual_gross = Decimal(str(gross_info.get('annual', 0)))
+        total_deductions = Decimal(str(deductions.get('total', 0)))
         taxable_income = Decimal(str(taxable_info.get('taxable_income', 0)))
         total_withholdings = Decimal(str(withholdings.get('total_withholdings', 0)))
 
