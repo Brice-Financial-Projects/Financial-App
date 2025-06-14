@@ -100,32 +100,29 @@ class BudgetCalculator:
             total_annual = Decimal('0')
             income_details = []
             
-            # Get all income sources for this budget
-            income_sources = GrossIncome.query.filter_by(budget_id=self.budget.id).all()
-            
-            for income in income_sources:
-                # Convert to annual amount based on frequency
-                annual_amount = self._convert_to_annual(
-                    Decimal(str(income.gross_income)),
-                    income.frequency
-                )
-                total_annual += annual_amount
+            for income in self.budget.gross_income_sources:
+                # Convert amount to Decimal for precise calculations
+                amount = Decimal(str(income.gross_income))
                 
-                # Calculate monthly amount
+                # Convert to annual amount based on frequency
+                annual_amount = self._convert_to_annual(amount, income.frequency)
                 monthly_amount = annual_amount / Decimal('12')
                 
+                # Add to total
+                total_annual += annual_amount
+                
+                # Add to income details
                 income_details.append({
-                    'source': income.name,
-                    'category': income.category,
-                    'annual': annual_amount,
-                    'monthly': monthly_amount,
+                    'source': income.source,
+                    'amount': float(amount),
                     'frequency': income.frequency,
-                    'tax_type': income.tax_type
+                    'annual': float(annual_amount),
+                    'monthly': float(monthly_amount)
                 })
             
             return {
-                'annual': total_annual,
-                'monthly': total_annual / Decimal('12'),
+                'annual': float(total_annual),
+                'monthly': float(total_annual / Decimal('12')),
                 'details': income_details
             }
         except Exception as e:
