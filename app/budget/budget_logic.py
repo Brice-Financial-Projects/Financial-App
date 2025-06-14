@@ -187,61 +187,62 @@ class BudgetCalculator:
             current_app.logger.error(f"Error calculating pre-tax deductions: {str(e)}")
             raise
 
-    def calculate_taxable_income(self):
+    def calculate_taxable_income(self) -> Dict[str, Any]:
         """Calculate taxable income after pre-tax deductions."""
         try:
+            # Get gross income and pre-tax deductions
             gross_income = self.calculate_gross_income()
             pre_tax_deductions = self.calculate_pre_tax_deductions()
             
-            # Use 'annual' instead of 'total_annual_gross'
-            taxable_income = gross_income['annual'] - pre_tax_deductions['total']
+            # Convert all values to Decimal for calculation
+            gross_annual = Decimal(str(gross_income['annual']))
+            deductions_total = Decimal(str(pre_tax_deductions['total']))
+            
+            # Calculate taxable income
+            taxable_income = gross_annual - deductions_total
             
             return {
-                'annual': taxable_income,
-                'monthly': taxable_income / Decimal('12'),
+                'annual': float(taxable_income),
+                'monthly': float(taxable_income / Decimal('12')),
                 'gross_income': gross_income,
                 'pre_tax_deductions': pre_tax_deductions
             }
         except Exception as e:
             current_app.logger.error(f"Error calculating taxable income: {str(e)}")
-            raise
+            raise ValueError(f"Error calculating taxable income: {str(e)}")
 
-    def calculate_tax_withholdings(self) -> Dict[str, Decimal]:
+    def calculate_tax_withholdings(self) -> Dict[str, Any]:
         """Calculate tax withholdings based on taxable income."""
         try:
-            current_app.logger.debug("Starting tax withholdings calculation")
-            
-            # Get gross income and taxable income data
-            gross_info = self.calculate_gross_income()
-            deductions = self.calculate_pre_tax_deductions()
+            # Get taxable income
             taxable_info = self.calculate_taxable_income()
             
-            # Validate and extract required values
-            annual_gross = gross_info['annual']
-            total_deductions = deductions['total']
-            taxable_income = taxable_info['annual']
+            # Convert values to Decimal for calculation
+            gross_annual = Decimal(str(taxable_info['gross_income']['annual']))
+            taxable_annual = Decimal(str(taxable_info['annual']))
             
             # Calculate FICA tax (7.65% of gross income)
-            fica_tax = annual_gross * Decimal('0.0765')
+            fica_tax = gross_annual * Decimal('0.0765')
             
-            # Calculate federal tax using tax brackets
-            federal_tax = self._calculate_federal_tax(taxable_income)
+            # Calculate federal tax
+            federal_tax = self._calculate_federal_tax(taxable_annual)
             
-            # Calculate state tax (simplified - using a flat rate)
-            state_tax = taxable_income * Decimal('0.05')  # 5% state tax rate
+            # Calculate state tax (simplified - 5% of taxable income)
+            state_tax = taxable_annual * Decimal('0.05')
             
             # Calculate total tax
-            total_tax = federal_tax + state_tax + fica_tax
+            total_tax = fica_tax + federal_tax + state_tax
             
             return {
-                'federal': federal_tax,
-                'state': state_tax,
-                'fica': fica_tax,
-                'total': total_tax,
-                'details': {
-                    'gross_income': annual_gross,
-                    'pre_tax_deductions': total_deductions,
-                    'taxable_income': taxable_income
+                'fica': float(fica_tax),
+                'federal': float(federal_tax),
+                'state': float(state_tax),
+                'total': float(total_tax),
+                'monthly': {
+                    'fica': float(fica_tax / Decimal('12')),
+                    'federal': float(federal_tax / Decimal('12')),
+                    'state': float(state_tax / Decimal('12')),
+                    'total': float(total_tax / Decimal('12'))
                 }
             }
         except Exception as e:
