@@ -312,59 +312,62 @@ class BudgetCalculator:
             taxable_info = self.calculate_taxable_income()
             tax_data = self.calculate_tax_withholdings()
             
-            # Extract annual amounts
-            total_annual_gross = gross_income['annual']
-            total_annual_deductions = pre_tax_deductions['total']
-            total_annual_taxable = taxable_info['annual']
-            total_annual_tax = tax_data['total']
+            # Convert all values to Decimal for calculations
+            total_annual_gross = Decimal(str(gross_income['annual']))
+            total_annual_deductions = Decimal(str(pre_tax_deductions['total']))
+            total_annual_tax = Decimal(str(tax_data['total']))
             
             # Calculate net income
-            total_annual_net = total_annual_taxable - total_annual_tax
+            total_annual_net = total_annual_gross - total_annual_deductions - total_annual_tax
             
-            # Get all expenses
-            expenses = BudgetItem.query.filter_by(budget_id=self.budget.id).all()
-            total_expenses = sum(Decimal(str(item.minimum_payment)) for item in expenses)
+            # Calculate total expenses
+            total_expenses = Decimal('0')
+            expenses_by_category = {}
+            
+            for item in self.budget.budget_items:
+                amount = Decimal(str(item.minimum_payment))
+                total_expenses += amount
+                
+                if item.category not in expenses_by_category:
+                    expenses_by_category[item.category] = Decimal('0')
+                expenses_by_category[item.category] += amount
             
             # Calculate remaining money
             remaining_money = total_annual_net - total_expenses
             
+            # Convert all final values to float for JSON serialization
             return {
                 'gross_income': {
-                    'annual': total_annual_gross,
-                    'monthly': total_annual_gross / Decimal('12'),
+                    'annual': float(total_annual_gross),
+                    'monthly': float(total_annual_gross / Decimal('12')),
                     'details': gross_income['details']
                 },
                 'deductions': {
-                    'annual': total_annual_deductions,
-                    'monthly': total_annual_deductions / Decimal('12'),
+                    'annual': float(total_annual_deductions),
+                    'monthly': float(total_annual_deductions / Decimal('12')),
                     'details': pre_tax_deductions
                 },
                 'taxable_income': {
-                    'annual': total_annual_taxable,
-                    'monthly': total_annual_taxable / Decimal('12')
+                    'annual': float(taxable_info['annual']),
+                    'monthly': float(taxable_info['monthly'])
                 },
                 'tax_withholdings': {
-                    'annual': total_annual_tax,
-                    'monthly': total_annual_tax / Decimal('12'),
+                    'annual': float(total_annual_tax),
+                    'monthly': float(total_annual_tax / Decimal('12')),
                     'details': tax_data
                 },
                 'net_income': {
-                    'annual': total_annual_net,
-                    'monthly': total_annual_net / Decimal('12')
+                    'annual': float(total_annual_net),
+                    'monthly': float(total_annual_net / Decimal('12'))
                 },
                 'expenses': {
-                    'total': total_expenses,
-                    'monthly': total_expenses / Decimal('12'),
-                    'details': [{
-                        'category': item.category,
-                        'name': item.name,
-                        'minimum_payment': item.minimum_payment,
-                        'preferred_payment': item.preferred_payment
-                    } for item in expenses]
+                    'total': float(total_expenses),
+                    'monthly': float(total_expenses / Decimal('12')),
+                    'by_category': {k: float(v) for k, v in expenses_by_category.items()}
                 },
                 'remaining_money': {
-                    'annual': remaining_money,
-                    'monthly': remaining_money / Decimal('12')
+                    'annual': float(remaining_money),
+                    'monthly': float(remaining_money / Decimal('12'))
                 }
             }
         except Exception as e:
