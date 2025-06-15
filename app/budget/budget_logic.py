@@ -104,21 +104,25 @@ class BudgetCalculator:
                 # Convert amount to Decimal for precise calculations
                 amount = Decimal(str(income.gross_income))
                 
-                # Convert to annual amount based on frequency
-                annual_amount = self._convert_to_annual(amount, income.frequency)
-                monthly_amount = annual_amount / Decimal('12')
+                # For all frequencies, amount is already annual
+                annual_amount = amount
                 
                 # Calculate per-paycheck amount for display
                 if income.frequency == 'biweekly':
-                    per_paycheck = amount / Decimal('26')
+                    per_paycheck = annual_amount / Decimal('26')  # 26 pay periods per year
+                    monthly_amount = per_paycheck * Decimal('2')  # Standard monthly amount (2 paychecks)
                 elif income.frequency == 'weekly':
-                    per_paycheck = amount / Decimal('52')
+                    per_paycheck = annual_amount / Decimal('52')
+                    monthly_amount = per_paycheck * Decimal('4')  # Standard monthly amount (4 paychecks)
                 elif income.frequency == 'monthly':
-                    per_paycheck = amount
+                    per_paycheck = annual_amount / Decimal('12')
+                    monthly_amount = per_paycheck
                 elif income.frequency == 'bimonthly':
-                    per_paycheck = amount / Decimal('2')
+                    per_paycheck = annual_amount / Decimal('24')
+                    monthly_amount = per_paycheck * Decimal('2')
                 else:  # annually
-                    per_paycheck = amount / Decimal('26')  # Show as biweekly equivalent
+                    per_paycheck = annual_amount / Decimal('26')  # Show as biweekly equivalent
+                    monthly_amount = annual_amount / Decimal('12')
                 
                 # Add to total
                 total_annual += annual_amount
@@ -145,19 +149,8 @@ class BudgetCalculator:
     def _convert_to_annual(self, amount: Decimal, frequency: str) -> Decimal:
         """Convert an amount to annual based on its frequency."""
         try:
-            if frequency == 'weekly':
-                return amount * Decimal('52')
-            elif frequency == 'biweekly':
-                # For biweekly, the amount is already annual, so we just return it
-                return amount
-            elif frequency == 'monthly':
-                return amount * Decimal('12')
-            elif frequency == 'bimonthly':
-                return amount * Decimal('24')
-            elif frequency == 'annually':
-                return amount
-            else:
-                raise ValueError(f"Invalid frequency: {frequency}")
+            # For all frequencies, the amount is already annual
+            return amount
         except Exception as e:
             current_app.logger.error(f"Error converting to annual: {str(e)}")
             raise ValueError(f"Error converting to annual: {str(e)}")
