@@ -1,7 +1,7 @@
 """app/forms.py"""
 
 from flask_wtf import FlaskForm
-from wtforms import StringField, FloatField, SelectField, SubmitField, FormField, FieldList
+from wtforms import StringField, FloatField, SelectField, SubmitField, FormField, FieldList, DecimalField
 from wtforms.validators import DataRequired, Optional, NumberRange
 from wtforms.fields import SelectMultipleField
 from wtforms.widgets import ListWidget, CheckboxInput
@@ -94,25 +94,19 @@ class OtherIncomeField(FlaskForm):
 
 
 class IncomeForm(FlaskForm):
-    """Form for entering gross income and other income sources."""
-    gross_income = FloatField('Gross Income', validators=[DataRequired()])
-    gross_income_frequency = SelectField(
-        'Income Frequency',
-        choices=[
-            ('weekly', 'Weekly'),
-            ('biweekly', 'Biweekly'),
-            ('monthly', 'Monthly'),
-            ('bimonthly', 'Bimonthly'),
-            ('annually', 'Annually')
-        ],
-        validators=[DataRequired()]
-    )
-
-    # Removed the FieldList for other_income_sources because we handle it directly in the template and route
-    # other_income_sources = FieldList(FormField(OtherIncomeField), min_entries=1, max_entries=10)
-
-    save = SubmitField('Save Income')
-    preview = SubmitField('Next: Budget Preview')
+    """Form for entering income details."""
+    gross_income = DecimalField('Annual Gross Income', validators=[
+        DataRequired(),
+        NumberRange(min=0, message="Income must be a positive number")
+    ])
+    gross_income_frequency = SelectField('Income Frequency', choices=[
+        ('weekly', 'Weekly'),
+        ('biweekly', 'Biweekly'),
+        ('monthly', 'Monthly'),
+        ('bimonthly', 'Bimonthly'),
+        ('annually', 'Annually')
+    ], validators=[DataRequired()])
+    submit = SubmitField('Save Income Details')
 
 
 # forms.py (add this at the top)

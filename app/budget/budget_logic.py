@@ -108,6 +108,18 @@ class BudgetCalculator:
                 annual_amount = self._convert_to_annual(amount, income.frequency)
                 monthly_amount = annual_amount / Decimal('12')
                 
+                # Calculate per-paycheck amount for display
+                if income.frequency == 'biweekly':
+                    per_paycheck = amount / Decimal('26')
+                elif income.frequency == 'weekly':
+                    per_paycheck = amount / Decimal('52')
+                elif income.frequency == 'monthly':
+                    per_paycheck = amount
+                elif income.frequency == 'bimonthly':
+                    per_paycheck = amount / Decimal('2')
+                else:  # annually
+                    per_paycheck = amount / Decimal('26')  # Show as biweekly equivalent
+                
                 # Add to total
                 total_annual += annual_amount
                 
@@ -116,6 +128,7 @@ class BudgetCalculator:
                     'source': income.source,
                     'amount': float(amount),
                     'frequency': income.frequency,
+                    'per_paycheck': float(per_paycheck),
                     'annual': float(annual_amount),
                     'monthly': float(monthly_amount)
                 })
@@ -135,12 +148,13 @@ class BudgetCalculator:
             if frequency == 'weekly':
                 return amount * Decimal('52')
             elif frequency == 'biweekly':
-                return amount * Decimal('26')
+                # For biweekly, the amount is already annual, so we just return it
+                return amount
             elif frequency == 'monthly':
                 return amount * Decimal('12')
             elif frequency == 'bimonthly':
                 return amount * Decimal('24')
-            elif frequency == 'annual':
+            elif frequency == 'annually':
                 return amount
             else:
                 raise ValueError(f"Invalid frequency: {frequency}")
