@@ -43,6 +43,7 @@ python-dateutil==2.9.0.post0
 python-dotenv==0.21.1
 redis==5.2.1
 requests>=2.32.4
+sendgrid>=6.10.0
 scramp==1.4.4
 six==1.17.0
 SQLAlchemy==2.0.36

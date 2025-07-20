@@ -30,6 +30,12 @@
         </div>
         <button type="submit" class="btn btn-primary">Login</button>
     </form>
+    
+    <div class="text-center mt-3">
+        <a href="{{ url_for('auth.request_password_reset') }}" class="text-decoration-none">
+            Forgot your password?
+        </a>
+    </div>
 </div>
 {% endblock %}
 
