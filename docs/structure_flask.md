@@ -33,7 +33,7 @@ finance-budget-app/
 │       ├── __init__.py # Unit tests initialization
 │       ├── test_models.py # Database model tests
 │       └── test_utils.py  # Utility function tests
-├── venv/                 # Python virtual environment
+├── .venv/                 # UV virtual environment
 ├── .env                  # Environment variables and secrets
 ├── .gitignore           # Git ignore patterns
 ├── budget_app.log       # Application logging file
