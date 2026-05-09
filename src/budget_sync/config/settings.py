@@ -3,6 +3,7 @@
 import os
 import logging
 from dotenv import load_dotenv
+from redis import Redis
 
 # Load environment variables from the .env file(s)
 load_dotenv()
@@ -63,7 +64,8 @@ class ProductionConfig(Config):
     
     SQLALCHEMY_DATABASE_URI = database_url
     SESSION_TYPE = "redis"  # Use Redis in production
-    SESSION_REDIS = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    #SESSION_REDIS = os.getenv("REDIS_URL", "redis://localhost:6379/0") # Default to localhost
+    SESSION_REDIS = Redis.from_url(os.getenv("REDIS_URL")) # Use Redis from Render URL
     
     # Connection pooling settings
     SQLALCHEMY_ENGINE_OPTIONS = {

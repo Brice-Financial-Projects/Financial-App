@@ -24,6 +24,7 @@
                 <a href="{{ url_for('budget.view_budget', budget_id=budget.id) }}" class="btn btn-sm btn-secondary">View</a>
                 <a href="{{ url_for('budget.edit_budget', budget_id=budget.id) }}" class="btn btn-sm btn-primary">Edit</a>
                 <form action="{{ url_for('budget.delete_budget', budget_id=budget.id) }}" method="POST" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                 </form>
             </div>
