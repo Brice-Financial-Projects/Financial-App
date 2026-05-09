@@ -1,11 +1,13 @@
 # Database Schema Documentation
 
 ## Overview
+
 This document outlines the database schema for the Budget Application. The application uses PostgreSQL as its database and SQLAlchemy as the ORM.
 
 ## Models
 
 ### User
+
 The core user model that handles authentication and user management.
 
 ```sql
@@ -23,6 +25,7 @@ Relationships:
 ```
 
 ### Profile
+
 Stores user profile information including tax-related details.
 
 ```sql
@@ -67,6 +70,7 @@ Relationships:
 ```
 
 ### Budget
+
 Represents a user's budget with income and expense tracking.
 
 ```sql
@@ -94,6 +98,7 @@ Relationships:
 ```
 
 ### BudgetItem
+
 Represents individual expense items within a budget.
 
 ```sql
@@ -110,6 +115,7 @@ Relationships:
 ```
 
 ### GrossIncome
+
 Tracks different sources of gross income for a budget.
 
 ```sql
@@ -129,6 +135,7 @@ Relationships:
 ```
 
 ### OtherIncome
+
 Tracks additional income sources for a budget.
 
 ```sql
@@ -158,7 +165,8 @@ erDiagram
 ```
 
 ## Notes
+
 - All monetary values are stored as Float type
 - Timestamps use server-side `now()` function for consistency
 - Cascading deletes are implemented where appropriate
-- Foreign key constraints ensure data integrity 
+- Foreign key constraints ensure data integrity
