@@ -1,4 +1,4 @@
-# Finance Budget Application
+# Financial Budget Application
 
 A comprehensive budgeting application that helps users manage their finances, track income sources, and plan expenses while considering tax implications.
 
@@ -23,7 +23,7 @@ A comprehensive budgeting application that helps users manage their finances, tr
   - Personal information tracking
   - Tax-related details (filing status, dependents)
   - Employment information
-  - Pre-tax benefits and deductions
+  - Pre-tax benefits and deductions tracking
 
 - **Budget Management**
   - Create and manage multiple budgets
@@ -58,10 +58,12 @@ A comprehensive budgeting application that helps users manage their finances, tr
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd finance-budget-budget_sync
+cd financial-budget_sync
 ```
 
 2. Create and activate a virtual environment:
+
+Using Pip:
 ```bash
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
@@ -69,9 +71,22 @@ source venv/bin/activate  # Linux/Mac
 venv\Scripts\activate  # Windows
 ```
 
+Using UV:
+```bash
+uv init
+uv venv
+# to activate
+source .venv/bin/activate
+```
+
 3. Install dependencies:
+Pip:
 ```bash
 pip install -r requirements.txt
+```
+UV:
+```bash
+uv sync
 ```
 
 4. Set up environment variables in `.env`:
@@ -92,59 +107,116 @@ flask db upgrade
 6. Run the application:
 ```bash
 flask run
+# or
+python3 run.py
 ```
 
 ## Project Structure
 
-```
-finance-budget-app/
-├── app/
-│   ├── auth/          # Authentication routes and forms
-│   ├── budget/        # Budget management functionality
-│   ├── config/        # Configuration settings
-│   ├── docs/          # Documentation files
-│   ├── models/        # Database models
-│   ├── profile/       # Profile management
-│   ├── static/        # Static files (CSS, JS)
-│   ├── templates/     # HTML templates
-│   └── weather/       # Weather integration
-├── docs/             # Project documentation
-├── migrations/       # Database migrations
-├── tests/           # Test files
-├── .env             # Environment variables
-├── .gitignore       # Git ignore file
-├── requirements.txt  # Python dependencies
-└── run.py           # Application entry point
-```
+The application follows a modular structure based on Flask blueprints:
 
-## Database Schema
+- **src/budget_sync/** - Main application package
+  - **auth/** - Authentication functionality
+  - **budget/** - Budget management features
+  - **profile/** - User profile management
+  - **weather/** - Weather integration
+  - **static/** - Static assets (CSS, JS)
+  - **templates/** - HTML templates
+  - **models.py** - Database models
+  - **forms.py** - Form definitions
+  - **utils.py** - Utility functions
 
-The application uses a relational database with the following main models:
-- Users
-- Profiles
-- Budgets
-- Budget Items
-- Gross Income
-- Other Income
+## Usage Guide
 
-For detailed schema information, see [Database Schema Documentation](docs/database_schema.md).
+### Registration and Profile Setup
 
-## Testing
+1. Register for an account using email and password
+2. Create your profile with personal and tax information
+3. Add employment details and pre-tax benefits
 
-Run the test suite:
-```bash
-pytest
-```
+### Creating a Budget
+
+1. Navigate to the dashboard and select "Create Budget"
+2. Name your budget and select expense categories
+3. Input minimum and preferred payment amounts for each category
+4. Add income sources with amounts and frequencies
+5. View your budget summary with tax implications
+
+### Managing Budgets
+
+1. View all budgets from the dashboard
+2. Edit budgets to update information as needed
+3. Delete budgets you no longer need
+4. Compare budget details and track spending
+
+### Weather Integration
+
+1. Navigate to the Weather section
+2. Enter city, state, and country information
+3. View current weather conditions and radar maps
+
+## Development Status
+
+The application is currently in active development. Key components that have been implemented:
+
+- ✅ User authentication system
+- ✅ Profile management with tax information
+- ✅ Budget creation and management
+- ✅ Income tracking with multiple sources
+- ✅ Tax calculation integration
+- ✅ Weather API integration
+- ✅ Responsive UI with Bootstrap
+
+Upcoming features include:
+
+- Data visualization enhancements
+- Budget comparison tools
+- Tax optimization recommendations
+- Expanded weather forecasting
+- Mobile application support
 
 ## API Documentation
 
+The application includes internal APIs for accessing tax and budget information:
+
+### Tax API Endpoints
+
+1. Get Federal Tax Brackets
+   ```
+   GET /api/v1/tax/federal/<year>
+   ```
+
+2. Get State Tax Brackets
+   ```
+   GET /api/v1/tax/state/<state>/<year>
+   ```
+
+3. Get FICA Rates
+   ```
+   GET /api/v1/tax/fica/<year>
+   ```
+
+4. Calculate Taxes
+   ```
+   POST /api/v1/tax/calculate
+   ```
+
+5. Get Available Tax Years
+   ```
+   GET /api/v1/tax/years
+   ```
+
 ### Weather API
-- Endpoint: `/weather/weather`
-- Method: POST
-- Parameters:
-  - city: City name
-  - state: State code (US)
-  - country: Country code
+
+The application integrates with OpenWeather API for weather data:
+
+```
+POST /weather/weather
+```
+Parameters:
+- city: City name
+- state: State code (US)
+- country: Country code
 
 ## Contributing
 
@@ -154,11 +226,7 @@ pytest
 4. Push to the branch
 5. Create a Pull Request
 
-## 👥 Contributors
-
-Thanks to the following contributors for improving this project:
-
-- **[Randall LaPoint Jr. ](https://github.com/Lokie-ree)** — Documentation improvements & project structure guidance
+Please ensure your code follows the project's coding standards and includes appropriate tests.
 
 ## License
 
