@@ -5,7 +5,7 @@ Idempotent seed script for BudgetSync (Turso)
 """
 
 import os
-from budget_sync import create_app, db, bcrypt
+from budget_sync import create_app, db
 from budget_sync.models import (
     User,
     Profile,
