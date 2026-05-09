@@ -2,6 +2,7 @@
 
 import os
 import logging
+from datetime import datetime
 from dotenv import load_dotenv
 from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
@@ -102,6 +103,10 @@ def create_app():
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(profile_bp)
     app.register_blueprint(weather_bp, url_prefix="/weather")
+
+    @app.context_processor
+    def inject_current_year():
+        return {"current_year": datetime.now().year}
 
     # Error handlers
     @app.errorhandler(404)
