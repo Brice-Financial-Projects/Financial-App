@@ -14,6 +14,7 @@ class User(db.Model):
     username = db.Column(db.String(20), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
+    confirmed = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, server_default=func.now(), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
 

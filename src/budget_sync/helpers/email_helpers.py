@@ -1,6 +1,7 @@
 """budget_sync/helpers/email_helpers.py"""
 
 import os
+from flask import current_app
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
 
@@ -97,3 +98,14 @@ def send_password_reset_email(user_email, reset_link):
     except Exception as e:
         print(f"❌ Error sending password reset email: {str(e)}")
         return False
+
+
+def send_confirmation_email(to_email, confirm_url):
+    message = Mail(
+        from_email='no-reply@budget-sync.com',
+        to_emails=to_email,
+        subject='Confirm your BudgetSync account',
+        html_content=f'Click to confirm your email: <a href="{confirm_url}">{confirm_url}</a>'
+    )
+    sg = SendGridAPIClient(current_app.config['SENDGRID_API_KEY'])
+    sg.send(message)

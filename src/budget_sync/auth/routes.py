@@ -1,46 +1,81 @@
 """backend/budget_sync/auth/routes.py"""
 
-from flask import render_template, redirect, url_for, flash, request
+from flask import render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from sqlalchemy.exc import IntegrityError
 from budget_sync.auth import auth_bp
 from budget_sync.auth.forms import LoginForm, RegistrationForm, ForgotPasswordForm, ResetPasswordForm
 from budget_sync.models import User, PasswordResetToken, TesterLog
 from budget_sync import db, bcrypt
-from budget_sync.helpers.email_helpers import send_password_reset_email
+from budget_sync.helpers.email_helpers import send_password_reset_email, send_confirmation_email
+from datetime import datetime, timedelta
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
-    
+
     form = RegistrationForm()
     if form.validate_on_submit():
         try:
-            # Create new user (User model hashes the password)
+            # -----------------------------
+            # Step 0: IP throttle check first
+            # -----------------------------
+            ip = request.remote_addr
+            one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+            recent_count = TesterLog.query.filter_by(ip=ip).filter(
+                TesterLog.created_at > one_hour_ago
+            ).count()
+
+            if recent_count >= 5:
+                flash("Too many signups from your IP, try again later.", "warning")
+                return redirect(url_for("auth.register"))
+
+            # -----------------------------
+            # Step 1: Create new user
+            # -----------------------------
             new_user = User(
                 username=form.username.data,
                 email=form.email.data,
-                password=form.password.data
+                password=form.password.data,  # User model hashes password
+                confirmed=False              # Important: user cannot log in yet
             )
-            ip = request.remote_addr
-            log = TesterLog(user_id=new_user.id, ip=ip)
             db.session.add(new_user)
+            db.session.flush()  # ensures new_user.id exists before logging IP
+
+            # -----------------------------
+            # Step 2: Log IP
+            # -----------------------------
+            log = TesterLog(user_id=new_user.id, ip=ip)
             db.session.add(log)
+
+            # -----------------------------
+            # Step 3: Generate confirmation token & send email
+            # -----------------------------
+            s = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
+            token = s.dumps(new_user.email, salt="email-confirm")
+            confirm_url = url_for('auth.confirm_email', token=token, _external=True)
+            send_confirmation_email(new_user.email, confirm_url)
+
+            # -----------------------------
+            # Step 4: Commit all changes
+            # -----------------------------
             db.session.commit()
 
-            flash('Account created successfully. You can now log in.', 'success')
+            flash(
+                'Account created successfully. Please check your email to confirm your account.',
+                'success'
+            )
             return redirect(url_for('auth.login'))
 
         except IntegrityError:
             db.session.rollback()
-            flash('An account with this email already exists. Please log in.', 'danger')
+            flash('An account with this email or username already exists. Please log in.', 'danger')
             return redirect(url_for('auth.login'))
-    
+
     return render_template('auth/register.html', form=form)
-
-
 
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
@@ -81,6 +116,39 @@ def login():
 
     return render_template('auth/login.html', form=form)
 
+
+@auth_bp.route("/confirm_email/<token>")
+def confirm_email(token):
+    """
+    User clicks the email confirmation link.
+    Verifies token and sets confirmed=True.
+    """
+    s = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
+
+    try:
+        # Decode token and verify signature + expiration
+        email = s.loads(token, salt="email-confirm", max_age=3600)  # 1 hour expiration
+    except SignatureExpired:
+        flash("Confirmation link expired. Please register again.", "danger")
+        return redirect(url_for("auth.register"))
+    except BadSignature:
+        flash("Invalid confirmation link.", "danger")
+        return redirect(url_for("auth.register"))
+
+    # Fetch user by email
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for("auth.register"))
+
+    if user.confirmed:
+        flash("Account already confirmed. You can log in.", "info")
+    else:
+        user.confirmed = True
+        db.session.commit()
+        flash("Email confirmed! You can now log in.", "success")
+
+    return redirect(url_for("auth.login"))
 
 
 @auth_bp.route('/logout')
