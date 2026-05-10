@@ -69,7 +69,7 @@ def create_app():
     CORS(app)
 
     # Debug Toolbar initialization
-    if app.config["DEBUG"]:  # Only activate in debug mode
+    if env == "development":  # Only activate in debug mode
         app.config["DEBUG_TB_INTERCEPT_REDIRECTS"] = False
         toolbar.init_app(app)
 
