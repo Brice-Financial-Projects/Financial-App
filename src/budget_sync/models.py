@@ -314,3 +314,12 @@ class OtherIncome(db.Model):
     def __repr__(self):
         return f"<OtherIncome {self.source} - ${self.amount} ({self.frequency})>"
 
+
+# ----------------------- Tester Logs -----------------------
+# models.py
+class TesterLog(db.Model):
+    __tablename__ = "tester_logs"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=False)
+    ip = db.Column(db.String(45), nullable=False)  # IPv6-compatible
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

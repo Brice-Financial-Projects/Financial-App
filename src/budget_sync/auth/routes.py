@@ -5,7 +5,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from sqlalchemy.exc import IntegrityError
 from budget_sync.auth import auth_bp
 from budget_sync.auth.forms import LoginForm, RegistrationForm, ForgotPasswordForm, ResetPasswordForm
-from budget_sync.models import User, PasswordResetToken
+from budget_sync.models import User, PasswordResetToken, TesterLog
 from budget_sync import db, bcrypt
 from budget_sync.helpers.email_helpers import send_password_reset_email
 
@@ -24,7 +24,10 @@ def register():
                 email=form.email.data,
                 password=form.password.data
             )
+            ip = request.remote_addr
+            log = TesterLog(user_id=new_user.id, ip=ip)
             db.session.add(new_user)
+            db.session.add(log)
             db.session.commit()
 
             flash('Account created successfully. You can now log in.', 'success')

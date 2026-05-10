@@ -160,3 +160,14 @@ CREATE TABLE IF NOT EXISTS other_income (
 
     FOREIGN KEY (budget_id) REFERENCES budgets(id) ON DELETE CASCADE
 );
+
+
+-- ----------------------
+-- Tester Logs
+-- ----------------------
+CREATE TABLE IF NOT EXISTS tester_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    ip TEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
