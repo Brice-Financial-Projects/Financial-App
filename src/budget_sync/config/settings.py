@@ -3,7 +3,6 @@
 import os
 import logging
 from dotenv import load_dotenv
-from redis import Redis
 
 # Load environment variables from the .env file(s)
 load_dotenv()
@@ -57,24 +56,26 @@ class TestingConfig(Config):
 
 class ProductionConfig(Config):
     """Production-specific configuration."""
+
     # Handle Heroku's postgres:// URL format
     database_url = os.getenv('DATABASE_URL', '')
     if database_url.startswith('postgres://'):
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
-    
+
     SQLALCHEMY_DATABASE_URI = database_url
+
+    # Keep REDIS_URL as-is (string from environment)
     SESSION_TYPE = "redis"  # Use Redis in production
-    #SESSION_REDIS = os.getenv("REDIS_URL", "redis://localhost:6379/0") # Default to localhost
-    SESSION_REDIS = Redis.from_url(os.getenv("REDIS_URL")) # Use Redis from Render URL
-    
+    REDIS_URL = os.getenv("REDIS_URL")  # STRING, not Redis() object
+
     # Connection pooling settings
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_size': 20,  # Maximum number of permanent connections
-        'pool_timeout': 30,  # Seconds to wait before timing out
+        'pool_size': 20,       # Maximum number of permanent connections
+        'pool_timeout': 30,    # Seconds to wait before timing out
         'pool_recycle': 1800,  # Recycle connections after 30 minutes
-        'max_overflow': 10,  # Allow up to 10 connections beyond pool_size
+        'max_overflow': 10,    # Allow up to 10 connections beyond pool_size
     }
-    
+
     # Additional production settings
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     WTF_CSRF_ENABLED = True
