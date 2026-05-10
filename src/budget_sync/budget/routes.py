@@ -540,6 +540,9 @@ def review_expenses(budget_id):
         
         # Create budget items from the selected expenses
         try:
+            # Clear any existing items for this budget to prevent duplicates
+            BudgetItem.query.filter_by(budget_id=budget_id).delete()
+
             for expense_id in selected_expense_ids:
                 # Get the expense template
                 template = ExpenseTemplate.query.get(expense_id)

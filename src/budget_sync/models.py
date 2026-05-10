@@ -23,9 +23,10 @@ class User(db.Model):
     budgets = db.relationship("Budget", back_populates="user", cascade="all, delete-orphan")
     password_reset_tokens = db.relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
 
-    def __init__(self, username, email, password):
+    def __init__(self, username, email, password, confirmed=False):
         self.username = username
         self.email = email
+        self.confirmed = confirmed
         # Hash the password using bcrypt
         self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
 

@@ -1,7 +1,6 @@
 """budget_sync/helpers/email_helpers.py"""
 
 import os
-from flask import current_app
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
 
@@ -101,11 +100,21 @@ def send_password_reset_email(user_email, reset_link):
 
 
 def send_confirmation_email(to_email, confirm_url):
+    sendgrid_api_key = os.getenv('SENDGRID_API_KEY')
+    if not sendgrid_api_key:
+        print("ERROR: SENDGRID_API_KEY environment variable not set")
+        return False
+
     message = Mail(
-        from_email='no-reply@budget-sync.com',
+        from_email=os.getenv('SENDGRID_FROM_EMAIL', 'noreply@budgetsync.com'),
         to_emails=to_email,
         subject='Confirm your BudgetSync account',
         html_content=f'Click to confirm your email: <a href="{confirm_url}">{confirm_url}</a>'
     )
-    sg = SendGridAPIClient(current_app.config['SENDGRID_API_KEY'])
-    sg.send(message)
+    try:
+        sg = SendGridAPIClient(sendgrid_api_key)
+        sg.send(message)
+        return True
+    except Exception as e:
+        print(f"❌ Error sending confirmation email: {str(e)}")
+        return False

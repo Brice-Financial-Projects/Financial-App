@@ -106,6 +106,10 @@ def login():
             flash("Incorrect password. Try again.", "danger")
             return redirect(url_for("auth.login"))
 
+        if not user.confirmed:
+            flash("Please confirm your email before logging in. Check your inbox.", "warning")
+            return redirect(url_for("auth.login"))
+
         # Successful login
         login_user(user, remember=form.remember_me.data)
         print(f"✅ User {user.email} logged in successfully!")
